@@ -2,13 +2,17 @@ import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 
-// Screens (to be created)
+// Screens
 import HomeScreen from '../screens/HomeScreen';
+import AuthLandingScreen from '../screens/AuthLandingScreen';
+import SignUpScreen from '../screens/SignUpScreen';
+import SignInScreen from '../screens/SignInScreen';
 
 export type RootStackParamList = {
   Home: undefined;
-  Login: undefined;
-  Register: undefined;
+  AuthLanding: undefined;
+  SignUp: undefined;
+  SignIn: undefined;
   Dashboard: undefined;
 };
 
@@ -18,10 +22,10 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName="AuthLanding"
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#f97316',
+            backgroundColor: '#6366f1',
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -29,9 +33,40 @@ const AppNavigator = () => {
           },
         }}>
         <Stack.Screen
+          name="AuthLanding"
+          component={AuthLandingScreen}
+          options={{headerShown: false}}
+        />
+        <Stack.Screen
+          name="SignUp"
+          component={SignUpScreen}
+          options={{
+            title: 'Sign Up',
+            headerBackTitleVisible: false,
+            headerTransparent: true,
+          }}
+        />
+        <Stack.Screen
+          name="SignIn"
+          component={SignInScreen}
+          options={{
+            title: 'Sign In',
+            headerBackTitleVisible: false,
+            headerTransparent: true,
+          }}
+        />
+        <Stack.Screen
           name="Home"
           component={HomeScreen}
           options={{title: 'Spending Thermometer 🌡️'}}
+        />
+        <Stack.Screen
+          name="Dashboard"
+          component={HomeScreen}
+          options={{
+            title: 'Dashboard',
+            headerLeft: () => null,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
