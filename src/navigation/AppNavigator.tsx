@@ -7,6 +7,7 @@ import HomeScreen from '../screens/HomeScreen';
 import AuthLandingScreen from '../screens/AuthLandingScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import SignInScreen from '../screens/SignInScreen';
+import DashboardScreen from '../screens/DashboardScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -62,10 +63,11 @@ const AppNavigator = () => {
         />
         <Stack.Screen
           name="Dashboard"
-          component={HomeScreen}
+          component={DashboardScreen}
           options={{
             title: 'Dashboard',
             headerLeft: () => null,
+            headerTransparent: true,
           }}
         />
       </Stack.Navigator>
