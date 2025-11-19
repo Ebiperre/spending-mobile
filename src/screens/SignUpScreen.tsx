@@ -105,7 +105,7 @@ const SignUpScreen: React.FC<Props> = ({navigation}) => {
         [
           {
             text: 'Let\'s Go!',
-            onPress: () => navigation.navigate('Dashboard'),
+            onPress: () => navigation.navigate('MainTabs'),
           },
         ]
       );

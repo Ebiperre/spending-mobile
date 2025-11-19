@@ -70,8 +70,8 @@ const SignInScreen: React.FC<Props> = ({navigation}) => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Navigate to Dashboard
-      navigation.navigate('Dashboard');
+      // Navigate to MainTabs
+      navigation.navigate('MainTabs');
     } catch (error) {
       Alert.alert('Sorry!', 'Email or password no correct. Try again abeg.');
     } finally {
