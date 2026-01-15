@@ -1,51 +1,117 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 import 'dart:math' as math;
 
-class WalletScreen extends StatelessWidget {
+class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
   @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+
+class _WalletScreenState extends State<WalletScreen> {
+  String _currencySymbol = '₦';
+  bool _isInitialLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    final currency = await PreferencesService.getCurrency();
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+
+    await Future.wait([
+      budgetService.fetchOverview(),
+      budgetService.fetchDailyBudget(),
+      budgetService.fetchMonthlyBudget(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _currencySymbol = PreferencesService.getCurrencySymbol(currency);
+        _isInitialLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final percentage = 0.65; // 65% spent
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final budgetService = Provider.of<BudgetService>(context);
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
+    final overview = budgetService.overview;
+    final cycle = overview?.currentCycle;
+    final dailyBudget = budgetService.dailyBudget;
+    final monthlyBudget = budgetService.monthlyBudget;
 
-            // Header
-            FadeInDown(
-              duration: const Duration(milliseconds: 400),
-              child: Text(
-                'Spending Thermometer',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+    // Calculate percentage from API data
+    final totalBudget = cycle?.totalBudget ?? monthlyBudget?.budget ?? 0.0;
+    final totalSpent = monthlyBudget?.spent ?? 0.0;
+    final remaining = cycle?.remaining ?? monthlyBudget?.remaining ?? 0.0;
+    final percentage = totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0) : 0.0;
+    final daysRemaining = cycle?.daysRemaining ?? monthlyBudget?.daysRemaining ?? 0;
+    final safeToSpendToday = dailyBudget?.budget ?? (remaining / (daysRemaining > 0 ? daysRemaining : 1));
+
+    if (_isInitialLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(
+            isDark ? AppColors.white : AppColors.black,
+          ),
+        ),
+      );
+    }
+
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _loadData,
+        color: isDark ? AppColors.white : AppColors.black,
+        child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+
+              // Header
+              FadeInDown(
+                duration: const Duration(milliseconds: 400),
+                child: Text(
+                  'Spending Thermometer',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            FadeInDown(
-              delay: const Duration(milliseconds: 50),
-              duration: const Duration(milliseconds: 400),
-              child: Text(
-                '12 days until payday',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
+              FadeInDown(
+                delay: const Duration(milliseconds: 50),
+                duration: const Duration(milliseconds: 400),
+                child: Text(
+                  '$daysRemaining days until payday',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 32),
 
@@ -175,10 +241,10 @@ class WalletScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+                          color: isDark ? AppColors.darkElevated : const Color(0xFFF8F9FA),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade200,
+                            color: isDark ? AppColors.darkElevated : AppColors.grey200,
                           ),
                         ),
                         child: Row(
@@ -189,7 +255,7 @@ class WalletScreen extends StatelessWidget {
                                   Text(
                                     'Spent',
                                     style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.5,
@@ -197,12 +263,12 @@ class WalletScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 8),
                                   TweenAnimationBuilder<double>(
-                                    tween: Tween(begin: 0.0, end: 1950.0),
+                                    tween: Tween(begin: 0.0, end: totalSpent),
                                     duration: const Duration(milliseconds: 1800),
                                     curve: Curves.easeOutCubic,
                                     builder: (context, value, child) {
                                       return Text(
-                                        '\$${value.toInt()}',
+                                        '$_currencySymbol${_formatNumber(value)}',
                                         style: const TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.w700,
@@ -223,9 +289,9 @@ class WalletScreen extends StatelessWidget {
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
-                                    Colors.grey.shade300.withOpacity(0.0),
-                                    Colors.grey.shade300,
-                                    Colors.grey.shade300.withOpacity(0.0),
+                                    (isDark ? AppColors.darkTextSecondary : Colors.grey.shade300).withOpacity(0.0),
+                                    isDark ? AppColors.darkTextSecondary : Colors.grey.shade300,
+                                    (isDark ? AppColors.darkTextSecondary : Colors.grey.shade300).withOpacity(0.0),
                                   ],
                                 ),
                               ),
@@ -236,7 +302,7 @@ class WalletScreen extends StatelessWidget {
                                   Text(
                                     'Remaining',
                                     style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.5,
@@ -244,12 +310,12 @@ class WalletScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 8),
                                   TweenAnimationBuilder<double>(
-                                    tween: Tween(begin: 0.0, end: 1050.0),
+                                    tween: Tween(begin: 0.0, end: remaining),
                                     duration: const Duration(milliseconds: 1800),
                                     curve: Curves.easeOutCubic,
                                     builder: (context, value, child) {
                                       return Text(
-                                        '\$${value.toInt()}',
+                                        '$_currencySymbol${_formatNumber(value)}',
                                         style: const TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.w700,
@@ -322,9 +388,9 @@ class WalletScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            '\$87.50',
-                            style: TextStyle(
+                          Text(
+                            '$_currencySymbol${_formatNumber(safeToSpendToday)}',
+                            style: const TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -1,
@@ -353,70 +419,81 @@ class WalletScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Insights Section
-            FadeInUp(
-              delay: const Duration(milliseconds: 300),
-              duration: const Duration(milliseconds: 400),
-              child: Text(
-                'Insights',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+              // Insights Section
+              FadeInUp(
+                delay: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 400),
+                child: Text(
+                  'Insights',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Insight Cards
-            FadeInUp(
-              delay: const Duration(milliseconds: 350),
-              duration: const Duration(milliseconds: 400),
-              child: _buildInsightCard(
-                context,
-                icon: Icons.trending_up,
-                title: 'Spending Pace',
-                description: 'You\'re spending faster than last month',
-                color: const Color(0xFFF97316),
-                isDark: isDark,
+              // Insight Cards
+              FadeInUp(
+                delay: const Duration(milliseconds: 350),
+                duration: const Duration(milliseconds: 400),
+                child: _buildInsightCard(
+                  context,
+                  icon: Icons.trending_up,
+                  title: 'Spending Pace',
+                  description: percentage > 0.5
+                      ? 'You\'re spending faster than expected'
+                      : 'You\'re on track with your budget',
+                  color: const Color(0xFFF97316),
+                  isDark: isDark,
+                ),
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            FadeInUp(
-              delay: const Duration(milliseconds: 400),
-              duration: const Duration(milliseconds: 400),
-              child: _buildInsightCard(
-                context,
-                icon: Icons.calendar_month,
-                title: 'Days Remaining',
-                description: '12 days to make \$1,050 last',
-                color: const Color(0xFF6366F1),
-                isDark: isDark,
+              FadeInUp(
+                delay: const Duration(milliseconds: 400),
+                duration: const Duration(milliseconds: 400),
+                child: _buildInsightCard(
+                  context,
+                  icon: Icons.calendar_month,
+                  title: 'Days Remaining',
+                  description: '$daysRemaining days to make $_currencySymbol${_formatNumber(remaining)} last',
+                  color: AppColors.primary,
+                  isDark: isDark,
+                ),
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            FadeInUp(
-              delay: const Duration(milliseconds: 450),
-              duration: const Duration(milliseconds: 400),
-              child: _buildInsightCard(
-                context,
-                icon: Icons.lightbulb_outline,
-                title: 'Daily Target',
-                description: 'Try to spend less than \$87.50 per day',
-                color: const Color(0xFF10B981),
-                isDark: isDark,
+              FadeInUp(
+                delay: const Duration(milliseconds: 450),
+                duration: const Duration(milliseconds: 400),
+                child: _buildInsightCard(
+                  context,
+                  icon: Icons.lightbulb_outline,
+                  title: 'Daily Target',
+                  description: 'Try to spend less than $_currencySymbol${_formatNumber(safeToSpendToday)} per day',
+                  color: const Color(0xFF10B981),
+                  isDark: isDark,
+                ),
               ),
-            ),
 
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
+      ),
+    );
+  }
+
+  String _formatNumber(double number) {
+    return number.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
     );
   }
 

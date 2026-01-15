@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/settings_service.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
@@ -21,12 +22,45 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
   bool _overspendingWarning = true;
   bool _streakReminder = true;
   bool _tipOfTheDay = false;
+  bool _isLoading = false;
 
   // Budget alert threshold
   double _budgetThreshold = 80;
 
   // Daily reminder time
   TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    await settingsService.fetchNotificationSettings();
+
+    if (mounted) {
+      final notificationSettings = settingsService.notificationSettings;
+      if (notificationSettings != null) {
+        setState(() {
+          _dailyReminder = notificationSettings.eveningCheckin;
+          _budgetAlerts = notificationSettings.budgetAlerts;
+          _streakReminder = notificationSettings.achievementNotifications;
+          // Parse time from string (e.g., "20:00")
+          final timeParts = notificationSettings.eveningCheckinTime.split(':');
+          if (timeParts.length == 2) {
+            _reminderTime = TimeOfDay(
+              hour: int.tryParse(timeParts[0]) ?? 20,
+              minute: int.tryParse(timeParts[1]) ?? 0,
+            );
+          }
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,9 +88,11 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Budget Alerts Section
@@ -222,7 +258,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _saveSettings,
+                  onPressed: _isLoading ? null : _saveSettings,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isDark ? AppColors.white : AppColors.black,
                     foregroundColor: isDark ? AppColors.black : AppColors.white,
@@ -231,19 +267,29 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Save Settings',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isDark ? AppColors.black : AppColors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save Settings',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -479,16 +525,48 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
     }
   }
 
-  void _saveSettings() {
-    // TODO: Save settings to SharedPreferences
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Settings saved successfully!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+  Future<void> _saveSettings() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+
+    // Format time as string "HH:mm"
+    final timeString = '${_reminderTime.hour.toString().padLeft(2, '0')}:${_reminderTime.minute.toString().padLeft(2, '0')}';
+
+    final success = await settingsService.updateNotificationSettings(
+      eveningCheckin: _dailyReminder,
+      eveningCheckinTime: timeString,
+      budgetAlerts: _budgetAlerts,
+      achievementNotifications: _streakReminder,
     );
-    Navigator.pop(context);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Settings saved successfully!'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(settingsService.error ?? 'Failed to save settings'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 }

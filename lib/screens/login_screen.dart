@@ -5,6 +5,7 @@ import 'package:spending_mobile/screens/dashboard_screen.dart';
 import 'package:spending_mobile/utils/page_transitions.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,8 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
   bool _rememberMe = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -53,21 +54,27 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        _isLoading = true;
+        _errorMessage = null;
       });
 
-      // TODO: Implement actual login logic
-      await Future.delayed(const Duration(seconds: 2));
+      final authService = Provider.of<AuthService>(context, listen: false);
 
-      setState(() {
-        _isLoading = false;
-      });
+      final success = await authService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      if (mounted) {
+      if (!mounted) return;
+
+      if (success) {
         Navigator.pushReplacement(
           context,
           ScaleRoute(page: const DashboardScreen()),
         );
+      } else {
+        setState(() {
+          _errorMessage = authService.error ?? 'Login failed. Please try again.';
+        });
       }
     }
   }
@@ -76,7 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final langService = Provider.of<LanguageService>(context);
+    final authService = Provider.of<AuthService>(context);
     final strings = AppStrings(langService.currentLanguage);
+    final isLoading = authService.isLoading;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -342,6 +351,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: 32),
 
+                          // Error Message
+                          if (_errorMessage != null)
+                            FadeIn(
+                              duration: const Duration(milliseconds: 300),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.error.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      color: AppColors.error,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: TextStyle(
+                                          color: AppColors.error,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
                           // Login Button
                           FadeInUp(
                             delay: const Duration(milliseconds: 250),
@@ -349,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _handleLogin,
+                                onPressed: isLoading ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isDark ? AppColors.white : AppColors.black,
                                   foregroundColor: isDark ? AppColors.black : AppColors.white,
@@ -359,13 +405,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   elevation: 0,
                                 ),
-                                child: _isLoading
-                                    ? const SizedBox(
+                                child: isLoading
+                                    ? SizedBox(
                                         height: 20,
                                         width: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            isDark ? AppColors.black : AppColors.white,
+                                          ),
                                         ),
                                       )
                                     : Text(

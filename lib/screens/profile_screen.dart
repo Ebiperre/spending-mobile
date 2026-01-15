@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:spending_mobile/screens/currency_settings_screen.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
 import 'package:spending_mobile/providers/theme_provider.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
@@ -22,15 +23,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCurrency();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
-  Future<void> _loadCurrency() async {
+  Future<void> _loadData() async {
     final currency = await PreferencesService.getCurrency();
-    setState(() {
-      _currency = currency;
-      _currencySymbol = PreferencesService.getCurrencySymbol(currency);
-    });
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // Refresh user data
+    await authService.fetchCurrentUser();
+
+    if (mounted) {
+      setState(() {
+        _currency = currency;
+        _currencySymbol = PreferencesService.getCurrencySymbol(currency);
+      });
+    }
   }
 
   void _showLanguageDialog(BuildContext context, LanguageService langService) {
@@ -219,14 +229,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // Navigate to login and clear all routes
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
+              // Logout and navigate to login
+              final authService = Provider.of<AuthService>(context, listen: false);
+              await authService.logout();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/login',
+                  (route) => false,
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
@@ -243,6 +257,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authService = Provider.of<AuthService>(context);
+
+    final user = authService.currentUser;
+    final streak = authService.streak;
+    final financialProfile = authService.financialProfile;
+
+    final userName = user?.fullName ?? 'User';
+    final userEmail = user?.email ?? '';
+    final currentStreak = streak?.currentStreak ?? 0;
+
+    // Calculate user level based on streak
+    String userLevel = 'Beginner';
+    if (currentStreak >= 30) {
+      userLevel = 'Expert';
+    } else if (currentStreak >= 14) {
+      userLevel = 'Advanced';
+    } else if (currentStreak >= 7) {
+      userLevel = 'Intermediate';
+    }
 
     return SingleChildScrollView(
       child: Padding(
@@ -295,7 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'John Doe',
+                      userName,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
@@ -307,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'john.doe@example.com',
+                      userEmail,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -345,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context: context,
                       icon: Icons.local_fire_department,
                       label: 'Streak',
-                      value: '12 days',
+                      value: '$currentStreak days',
                       color: AppColors.accent,
                     ),
                   ),
@@ -355,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context: context,
                       icon: Icons.star,
                       label: 'Level',
-                      value: 'Beginner',
+                      value: userLevel,
                       color: AppColors.warning,
                     ),
                   ),
@@ -370,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context: context,
               icon: Icons.account_balance_wallet,
               title: 'Salary Settings',
-              subtitle: '\$3,000/month',
+              subtitle: '$_currencySymbol${_formatNumber(financialProfile?.monthlyIncome ?? 0)}/month',
               delay: 150,
               onTap: () {
                 Navigator.pushNamed(context, '/salary-settings');
@@ -389,14 +422,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     builder: (context) => const CurrencySettingsScreen(),
                   ),
                 );
-                _loadCurrency();
+                _loadData();
               },
             ),
             _buildMenuItem(
               context: context,
               icon: Icons.calendar_today,
               title: 'Payday',
-              subtitle: '25th of every month',
+              subtitle: '${_getOrdinal(financialProfile?.salaryDay ?? 25)} of every month',
               delay: 250,
               onTap: () {
                 Navigator.pushNamed(context, '/payday-settings');
@@ -800,5 +833,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _formatNumber(double number) {
+    return number.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  String _getOrdinal(int day) {
+    if (day >= 11 && day <= 13) {
+      return '${day}th';
+    }
+    switch (day % 10) {
+      case 1:
+        return '${day}st';
+      case 2:
+        return '${day}nd';
+      case 3:
+        return '${day}rd';
+      default:
+        return '${day}th';
+    }
   }
 }

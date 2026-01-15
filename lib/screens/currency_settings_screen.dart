@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class CurrencySettingsScreen extends StatefulWidget {
   const CurrencySettingsScreen({super.key});
@@ -39,7 +40,7 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Currency updated to ${PreferencesService.getCurrencyName(currency)}'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: AppColors.success,
         ),
       );
     }
@@ -50,13 +51,15 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Salary Currency'),
-        backgroundColor: const Color(0xFF6366F1),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
+      body: SafeArea(
+        top: false,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -65,12 +68,12 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.1),
+                        color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, color: Color(0xFF6366F1)),
+                          const Icon(Icons.info_outline, color: AppColors.primary),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
@@ -94,17 +97,17 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF6366F1).withOpacity(0.1)
+                              ? AppColors.primary.withOpacity(0.1)
                               : (Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFF1A1A1A)
+                                  ? AppColors.darkSurface
                                   : Colors.white),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF6366F1)
+                                ? AppColors.primary
                                 : (Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFF2A2A2A)
-                                    : Colors.grey.shade300),
+                                    ? AppColors.darkElevated
+                                    : AppColors.grey300),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -117,8 +120,8 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF6366F1)
-                                  : Colors.grey.shade200,
+                                  ? AppColors.primary
+                                  : AppColors.grey200,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
@@ -138,7 +141,7 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
                               color: isSelected
-                                  ? const Color(0xFF6366F1)
+                                  ? AppColors.primary
                                   : Colors.black87,
                             ),
                           ),
@@ -153,7 +156,7 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                           trailing: isSelected
                               ? const Icon(
                                   Icons.check_circle,
-                                  color: Color(0xFF6366F1),
+                                  color: AppColors.primary,
                                 )
                               : Icon(
                                   Icons.radio_button_unchecked,
@@ -164,9 +167,10 @@ class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
                       ),
                     );
                   }),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

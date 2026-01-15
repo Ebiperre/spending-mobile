@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class QuickAddScreen extends StatefulWidget {
   const QuickAddScreen({super.key});
@@ -11,33 +15,34 @@ class QuickAddScreen extends StatefulWidget {
 
 class _QuickAddScreenState extends State<QuickAddScreen> {
   String _selectedType = 'Expense';
-  String _selectedCategory = 'Food';
+  String _selectedCategory = 'food';
   String _selectedAmount = '';
   String _currency = 'NGN';
   String _currencySymbol = '₦';
   bool _isLoading = false;
 
-  final List<String> _categories = [
-    'Food',
-    'Transport',
-    'Entertainment',
-    'Shopping',
-    'Bills',
-    'Health',
-    'Education',
-    'Other',
+  // Categories with API values
+  final List<Map<String, String>> _categories = [
+    {'value': 'food', 'label': 'Food'},
+    {'value': 'transport', 'label': 'Transport'},
+    {'value': 'entertainment', 'label': 'Entertainment'},
+    {'value': 'shopping', 'label': 'Shopping'},
+    {'value': 'bills', 'label': 'Bills'},
+    {'value': 'health', 'label': 'Health'},
+    {'value': 'education', 'label': 'Education'},
+    {'value': 'other', 'label': 'Other'},
   ];
 
   // Estimated amounts based on category (in NGN)
   final Map<String, List<String>> _estimatedAmounts = {
-    'Food': ['500', '1,000', '1,500', '2,500', '5,000'],
-    'Transport': ['200', '500', '1,000', '2,000', '5,000'],
-    'Entertainment': ['1,000', '2,500', '5,000', '10,000', '20,000'],
-    'Shopping': ['2,000', '5,000', '10,000', '20,000', '50,000'],
-    'Bills': ['5,000', '10,000', '15,000', '25,000', '50,000'],
-    'Health': ['1,000', '3,000', '5,000', '10,000', '20,000'],
-    'Education': ['2,000', '5,000', '10,000', '25,000', '50,000'],
-    'Other': ['500', '1,000', '2,500', '5,000', '10,000'],
+    'food': ['500', '1,000', '1,500', '2,500', '5,000'],
+    'transport': ['200', '500', '1,000', '2,000', '5,000'],
+    'entertainment': ['1,000', '2,500', '5,000', '10,000', '20,000'],
+    'shopping': ['2,000', '5,000', '10,000', '20,000', '50,000'],
+    'bills': ['5,000', '10,000', '15,000', '25,000', '50,000'],
+    'health': ['1,000', '3,000', '5,000', '10,000', '20,000'],
+    'education': ['2,000', '5,000', '10,000', '25,000', '50,000'],
+    'other': ['500', '1,000', '2,500', '5,000', '10,000'],
   };
 
   @override
@@ -59,7 +64,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select an estimated amount'),
-          backgroundColor: Color(0xFFEF4444),
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -71,38 +76,69 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
     // Remove commas from amount for parsing
     final amount = double.tryParse(_selectedAmount.replaceAll(',', '')) ?? 0.0;
+    final type = _selectedType == 'Income' ? 'income' : 'expense';
 
-    // TODO: Save transaction to database
-    await Future.delayed(const Duration(seconds: 1));
+    final transactionService = Provider.of<TransactionService>(context, listen: false);
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+
+    final success = await transactionService.createTransaction(
+      amount: amount,
+      category: _selectedCategory,
+      date: DateTime.now(),
+      type: type,
+    );
+
+    if (!mounted) return;
 
     setState(() {
       _isLoading = false;
     });
 
-    if (mounted) {
+    if (success != null) {
+      // Refresh budget data
+      budgetService.fetchDailyBudget();
+      budgetService.fetchMonthlyBudget();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Transaction added successfully!'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: AppColors.success,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(transactionService.error ?? 'Failed to add transaction'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
+  }
+
+  String _getCategoryLabel(String value) {
+    final category = _categories.firstWhere(
+      (c) => c['value'] == value,
+      orElse: () => {'value': value, 'label': value},
+    );
+    return category['label'] ?? value;
   }
 
   @override
   Widget build(BuildContext context) {
-    final amounts = _estimatedAmounts[_selectedCategory] ?? _estimatedAmounts['Other']!;
+    final amounts = _estimatedAmounts[_selectedCategory] ?? _estimatedAmounts['other']!;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quick Add'),
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.black,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Type Selection
@@ -114,7 +150,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     child: _buildTypeButton(
                       label: 'Expense',
                       icon: Icons.arrow_upward,
-                      color: const Color(0xFFEF4444),
+                      color: AppColors.error,
                       isSelected: _selectedType == 'Expense',
                       onTap: () {
                         setState(() {
@@ -129,7 +165,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     child: _buildTypeButton(
                       label: 'Income',
                       icon: Icons.arrow_downward,
-                      color: const Color(0xFF10B981),
+                      color: AppColors.success,
                       isSelected: _selectedType == 'Income',
                       onTap: () {
                         setState(() {
@@ -164,11 +200,11 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _categories.map((category) {
-                      final isSelected = _selectedCategory == category;
+                      final isSelected = _selectedCategory == category['value'];
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            _selectedCategory = category;
+                            _selectedCategory = category['value']!;
                             _selectedAmount = '';
                           });
                         },
@@ -179,19 +215,19 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF6366F1)
-                                : Colors.grey.shade100,
+                                ? AppColors.black
+                                : AppColors.grey100,
                             borderRadius: BorderRadius.circular(25),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFF6366F1)
-                                  : Colors.grey.shade300,
+                                  ? AppColors.black
+                                  : AppColors.grey200,
                             ),
                           ),
                           child: Text(
-                            category,
+                            category['label']!,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
+                              color: isSelected ? Colors.white : AppColors.lightText,
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.w500,
@@ -227,7 +263,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey600,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -250,16 +286,16 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? (_selectedType == 'Expense'
-                                    ? const Color(0xFFEF4444)
-                                    : const Color(0xFF10B981))
-                                : Colors.grey.shade100,
+                                    ? AppColors.error
+                                    : AppColors.success)
+                                : AppColors.grey100,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSelected
                                   ? (_selectedType == 'Expense'
-                                      ? const Color(0xFFEF4444)
-                                      : const Color(0xFF10B981))
-                                  : Colors.grey.shade300,
+                                      ? AppColors.error
+                                      : AppColors.success)
+                                  : AppColors.grey200,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -268,7 +304,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: isSelected ? Colors.white : Colors.black87,
+                              color: isSelected ? Colors.white : AppColors.lightText,
                             ),
                           ),
                         ),
@@ -288,14 +324,14 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: (_selectedType == 'Expense'
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF10B981))
+                            ? AppColors.error
+                            : AppColors.success)
                         .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: (_selectedType == 'Expense'
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF10B981))
+                              ? AppColors.error
+                              : AppColors.success)
                           .withOpacity(0.3),
                     ),
                   ),
@@ -306,7 +342,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
+                          color: AppColors.grey600,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -317,8 +353,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.5,
                           color: _selectedType == 'Expense'
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF10B981),
+                              ? AppColors.error
+                              : AppColors.success,
                         ),
                       ),
                     ],
@@ -337,8 +373,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 onPressed: _isLoading ? null : _handleSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _selectedType == 'Expense'
-                      ? const Color(0xFFEF4444)
-                      : const Color(0xFF10B981),
+                      ? AppColors.error
+                      : AppColors.success,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -374,12 +410,12 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.1),
+                  color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.lightbulb, color: Color(0xFF6366F1)),
+                    const Icon(Icons.lightbulb, color: AppColors.primary),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
@@ -391,7 +427,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -409,10 +446,10 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.grey.shade100,
+          color: isSelected ? color.withOpacity(0.1) : AppColors.grey100,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? color : Colors.grey.shade300,
+            color: isSelected ? color : AppColors.grey200,
             width: 2,
           ),
         ),
@@ -420,7 +457,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? color : Colors.grey.shade600,
+              color: isSelected ? color : AppColors.grey600,
               size: 32,
             ),
             const SizedBox(height: 8),
@@ -429,7 +466,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: isSelected ? color : Colors.grey.shade600,
+                color: isSelected ? color : AppColors.grey600,
               ),
             ),
           ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
+import 'package:spending_mobile/services/auth_service.dart';
 import 'package:spending_mobile/services/language_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
@@ -41,13 +42,64 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _isLoading = true;
       });
 
-      // TODO: Implement actual password reset logic
-      await Future.delayed(const Duration(seconds: 2));
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final success = await authService.forgotPassword(_emailController.text.trim());
+
+      if (!mounted) return;
 
       setState(() {
         _isLoading = false;
-        _emailSent = true;
       });
+
+      if (success) {
+        setState(() {
+          _emailSent = true;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authService.error ?? 'Failed to send reset link'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleResendEmail() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final success = await authService.forgotPassword(_emailController.text.trim());
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Reset link sent again!'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authService.error ?? 'Failed to resend link'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -371,18 +423,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           delay: const Duration(milliseconds: 250),
           duration: const Duration(milliseconds: 400),
           child: TextButton(
-            onPressed: () {
-              setState(() {
-                _emailSent = false;
-              });
-            },
-            child: Text(
-              strings.didntReceiveEmail,
-              style: TextStyle(
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            onPressed: _isLoading ? null : _handleResendEmail,
+            child: _isLoading
+                ? SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  )
+                : Text(
+                    strings.didntReceiveEmail,
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
           ),
         ),
       ],

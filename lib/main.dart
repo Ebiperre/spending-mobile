@@ -23,14 +23,44 @@ import 'package:spending_mobile/screens/onboarding/step4_language.dart';
 import 'package:spending_mobile/screens/onboarding/step5_welcome.dart';
 import 'package:spending_mobile/providers/theme_provider.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/services/settings_service.dart';
+import 'package:spending_mobile/services/database_service.dart';
+import 'package:spending_mobile/services/connectivity_service.dart';
+import 'package:spending_mobile/services/sync_queue_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize core services
+  final databaseService = DatabaseService();
+  final connectivityService = ConnectivityService();
+  final syncQueueService = SyncQueueService();
+
+  // Initialize database
+  await databaseService.init();
+
+  // Initialize connectivity monitoring
+  await connectivityService.init();
+
+  // Initialize sync queue
+  await syncQueueService.init();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => LanguageService()),
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => TransactionService()),
+        ChangeNotifierProvider(create: (_) => BudgetService()),
+        ChangeNotifierProvider(create: (_) => SettingsService()),
+        // Offline-first services (singletons already initialized)
+        ChangeNotifierProvider.value(value: connectivityService),
+        ChangeNotifierProvider.value(value: syncQueueService),
       ],
       child: const MyApp(),
     ),
@@ -76,6 +106,11 @@ class MyApp extends StatelessWidget {
             income: args['income'],
             expenses: args['expenses'],
             payday: args['payday'],
+            rent: args['rent'],
+            transport: args['transport'],
+            bills: args['bills'],
+            savings: args['savings'],
+            other: args['other'],
           );
         },
         '/onboarding/step4': (context) => const Step4Language(),

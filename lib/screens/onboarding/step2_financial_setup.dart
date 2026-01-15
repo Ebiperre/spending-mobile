@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class Step2FinancialSetup extends StatefulWidget {
   const Step2FinancialSetup({super.key});
@@ -44,19 +45,19 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF0A0A0A)
-            : const Color(0xFFF8F9FA),
+            ? AppColors.darkBackground
+            : AppColors.lightBackground,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
             color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : const Color(0xFF1A1A1A),
+                ? AppColors.white
+                : AppColors.darkSurface,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -97,7 +98,7 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey600,
                     ),
                   ),
                 ),
@@ -114,8 +115,8 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                     ),
                   ),
                 ),
@@ -130,7 +131,7 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey600,
                     ),
                   ),
                 ),
@@ -169,21 +170,44 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
                   duration: const Duration(milliseconds: 600),
                   child: TextFormField(
                     controller: _incomeController,
-                    style: const TextStyle(color: Colors.black),
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.white
+                          : AppColors.darkSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       labelText: 'Monthly Income',
+                      labelStyle: TextStyle(
+                        color: AppColors.grey600,
+                        fontWeight: FontWeight.w500,
+                      ),
                       prefixText: '₦ ',
-                      prefixIcon: const Icon(Icons.account_balance_wallet),
+                      prefixStyle: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.white
+                            : AppColors.darkSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      prefixIcon: Icon(Icons.account_balance_wallet, color: AppColors.grey600),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+                        borderSide: BorderSide(color: AppColors.primary, width: 2),
                       ),
                     ),
                     validator: (value) {
@@ -277,17 +301,21 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
                     child: ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          // TODO: Navigate to step 3 with calculation
                           Navigator.pushNamed(context, '/onboarding/step3', arguments: {
                             'income': double.parse(_incomeController.text),
                             'expenses': _getTotal(),
                             'payday': _selectedPayday,
+                            'rent': double.tryParse(_rentController.text) ?? 0.0,
+                            'transport': double.tryParse(_transportController.text) ?? 0.0,
+                            'bills': double.tryParse(_billsController.text) ?? 0.0,
+                            'savings': double.tryParse(_savingsController.text) ?? 0.0,
+                            'other': double.tryParse(_otherController.text) ?? 0.0,
                           });
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
@@ -313,7 +341,7 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
     return Container(
       height: 4,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF6366F1) : Colors.grey.shade300,
+        color: isActive ? AppColors.primary : AppColors.grey300,
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -327,17 +355,17 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6366F1)
+              ? AppColors.primary
               : Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1A1A1A)
-                  : Colors.white,
+                  ? AppColors.darkSurface
+                  : AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6366F1)
+                ? AppColors.primary
                 : Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF2A2A2A)
-                    : Colors.grey.shade200,
+                    ? AppColors.darkElevated
+                    : AppColors.grey200,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -347,10 +375,10 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: isSelected
-                ? Colors.white
+                ? AppColors.white
                 : Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : const Color(0xFF1A1A1A),
+                    ? AppColors.white
+                    : AppColors.darkSurface,
           ),
         ),
       ),
@@ -380,8 +408,8 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
       controller: controller,
       style: TextStyle(
         color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.white
-            : const Color(0xFF1A1A1A),
+            ? AppColors.white
+            : AppColors.darkSurface,
         fontWeight: FontWeight.w500,
       ),
       keyboardType: TextInputType.number,
@@ -389,27 +417,33 @@ class _Step2FinancialSetupState extends State<Step2FinancialSetup> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-          color: Colors.grey.shade600,
+          color: AppColors.grey600,
           fontWeight: FontWeight.w500,
         ),
         prefixText: '₦ ',
-        prefixIcon: Icon(icon, color: Colors.grey.shade600),
+        prefixStyle: TextStyle(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.white
+              : AppColors.darkSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(icon, color: AppColors.grey600),
         filled: true,
         fillColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1A1A1A)
-            : Colors.white,
+            ? AppColors.darkSurface
+            : AppColors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF2A2A2A)
-                : Colors.grey.shade200,
+                ? AppColors.darkElevated
+                : AppColors.grey200,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+          borderSide: BorderSide(color: AppColors.primary, width: 2),
         ),
       ),
     );

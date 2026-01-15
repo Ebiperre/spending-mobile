@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -14,20 +18,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   String _selectedType = 'Expense';
-  String _selectedCategory = 'Food';
+  String _selectedCategory = 'food';
   bool _isLoading = false;
   String _currency = 'NGN';
   String _currencySymbol = '₦';
+  String? _errorMessage;
 
-  final List<String> _categories = [
-    'Food',
-    'Transport',
-    'Entertainment',
-    'Shopping',
-    'Bills',
-    'Health',
-    'Education',
-    'Other',
+  // Categories matching API expectations
+  final List<Map<String, String>> _categories = [
+    {'value': 'food', 'label': 'Food'},
+    {'value': 'transport', 'label': 'Transport'},
+    {'value': 'entertainment', 'label': 'Entertainment'},
+    {'value': 'shopping', 'label': 'Shopping'},
+    {'value': 'bills', 'label': 'Bills'},
+    {'value': 'health', 'label': 'Health'},
+    {'value': 'education', 'label': 'Education'},
+    {'value': 'other', 'label': 'Other'},
   ];
 
   @override
@@ -55,23 +61,53 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
-      // TODO: Save transaction to database
-      await Future.delayed(const Duration(seconds: 1));
+      final transactionService = Provider.of<TransactionService>(context, listen: false);
+      final budgetService = Provider.of<BudgetService>(context, listen: false);
+
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
+      final type = _selectedType == 'Income' ? 'income' : 'expense';
+
+      final success = await transactionService.createTransaction(
+        amount: amount,
+        category: _selectedCategory,
+        description: _descriptionController.text.isNotEmpty
+            ? _descriptionController.text
+            : null,
+        date: DateTime.now(),
+        type: type,
+      );
+
+      if (!mounted) return;
 
       setState(() {
         _isLoading = false;
       });
 
-      if (mounted) {
+      if (success != null) {
+        // Refresh budget data after adding transaction
+        budgetService.fetchDailyBudget();
+        budgetService.fetchMonthlyBudget();
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Transaction added successfully!'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: AppColors.success,
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true); // Return true to indicate success
+      } else {
+        setState(() {
+          _errorMessage = transactionService.error ?? 'Failed to add transaction';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage!),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -81,12 +117,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Transaction'),
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.black,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -100,7 +138,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       child: _buildTypeButton(
                         label: 'Expense',
                         icon: Icons.arrow_upward,
-                        color: const Color(0xFFEF4444),
+                        color: AppColors.error,
                         isSelected: _selectedType == 'Expense',
                         onTap: () {
                           setState(() {
@@ -114,7 +152,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       child: _buildTypeButton(
                         label: 'Income',
                         icon: Icons.arrow_downward,
-                        color: const Color(0xFF10B981),
+                        color: AppColors.success,
                         isSelected: _selectedType == 'Income',
                         onTap: () {
                           setState(() {
@@ -158,7 +196,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           fontSize: 32,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.5,
-                          color: _selectedType == 'Expense' ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                          color: _selectedType == 'Expense' ? AppColors.error : AppColors.success,
                         ),
                         hintText: '0.00',
                         border: OutlineInputBorder(
@@ -167,7 +205,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide(
-                            color: _selectedType == 'Expense' ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                            color: _selectedType == 'Expense' ? AppColors.error : AppColors.success,
                             width: 2,
                           ),
                         ),
@@ -207,11 +245,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: _categories.map((category) {
-                        final isSelected = _selectedCategory == category;
+                        final isSelected = _selectedCategory == category['value'];
                         return GestureDetector(
                           onTap: () {
                             setState(() {
-                              _selectedCategory = category;
+                              _selectedCategory = category['value']!;
                             });
                           },
                           child: Container(
@@ -221,19 +259,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF6366F1)
-                                  : Colors.grey.shade100,
+                                  ? AppColors.black
+                                  : AppColors.grey100,
                               borderRadius: BorderRadius.circular(25),
                               border: Border.all(
                                 color: isSelected
-                                    ? const Color(0xFF6366F1)
-                                    : Colors.grey.shade300,
+                                    ? AppColors.black
+                                    : AppColors.grey200,
                               ),
                             ),
                             child: Text(
-                              category,
+                              category['label']!,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black87,
+                                color: isSelected ? Colors.white : AppColors.lightText,
                                 fontWeight: isSelected
                                     ? FontWeight.w600
                                     : FontWeight.w500,
@@ -275,7 +313,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(
-                            color: Color(0xFF6366F1),
+                            color: AppColors.primary,
                             width: 2,
                           ),
                         ),
@@ -295,8 +333,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   onPressed: _isLoading ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _selectedType == 'Expense'
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
+                        ? AppColors.error
+                        : AppColors.success,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -332,12 +370,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.1),
+                    color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.lightbulb, color: Color(0xFF6366F1)),
+                      const Icon(Icons.lightbulb, color: AppColors.primary),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
@@ -349,7 +387,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -368,10 +407,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.grey.shade100,
+          color: isSelected ? color.withOpacity(0.1) : AppColors.grey100,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? color : Colors.grey.shade300,
+            color: isSelected ? color : AppColors.grey200,
             width: 2,
           ),
         ),
@@ -379,7 +418,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? color : Colors.grey.shade600,
+              color: isSelected ? color : AppColors.grey600,
               size: 32,
             ),
             const SizedBox(height: 8),
@@ -388,7 +427,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: isSelected ? color : Colors.grey.shade600,
+                color: isSelected ? color : AppColors.grey600,
               ),
             ),
           ],

@@ -10,8 +10,13 @@ import 'package:spending_mobile/screens/morning_briefing_screen.dart';
 import 'package:spending_mobile/screens/the_gist_screen.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
+import 'package:spending_mobile/models/transaction.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
+import 'package:spending_mobile/widgets/sync_status_indicator.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -25,16 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   String _currency = 'NGN';
   String _currencySymbol = '₦';
   bool _isFabMenuOpen = false;
+  bool _isInitialLoading = true;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
-
-
-  final List<Map<String, dynamic>> _recentTransactions = [
-    {'title': 'Okada to work', 'amount': -500.0, 'category': '🚗 MOVE', 'icon': Icons.local_taxi},
-    {'title': 'Lunch (Rice & Stew)', 'amount': -800.0, 'category': '🍔 CHOP', 'icon': Icons.restaurant},
-    {'title': 'MTN Data', 'amount': -1000.0, 'category': '🏠 MUST PAY', 'icon': Icons.wifi},
-    {'title': 'Babe Birthday Gift', 'amount': -5000.0, 'category': '❤️ RELATIONSHIP', 'icon': Icons.card_giftcard},
-  ];
 
   @override
   void initState() {
@@ -48,6 +46,33 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       parent: _fabAnimationController,
       curve: Curves.easeInOut,
     );
+    // Schedule data loading after the first frame to avoid calling setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDashboardData();
+    });
+  }
+
+  Future<void> _loadDashboardData() async {
+    if (!mounted) return;
+
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+    final transactionService = Provider.of<TransactionService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // Fetch all data in parallel
+    await Future.wait([
+      budgetService.fetchDailyBudget(),
+      budgetService.fetchMonthlyBudget(),
+      budgetService.fetchOverview(),
+      transactionService.fetchTransactions(limit: 5, refresh: true),
+      if (authService.currentUser == null) authService.fetchCurrentUser(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _isInitialLoading = false;
+      });
+    }
   }
 
   @override
@@ -157,38 +182,80 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         delay: const Duration(milliseconds: 900),
         duration: const Duration(milliseconds: 600),
         child: Container(
-          decoration: const BoxDecoration(),
-          child: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            onTap: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            selectedItemColor: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.white
-                : AppColors.black,
-            unselectedItemColor: AppColors.grey600,
-            type: BottomNavigationBarType.fixed,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Home',
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkSurface
+                : AppColors.white,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.grey800
+                    : AppColors.grey200,
+                width: 1,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.analytics),
-                label: 'Analytics',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.device_thermostat),
-                label: 'Thermometer',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
+            ),
           ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+                  _buildNavItem(1, Icons.analytics_rounded, Icons.analytics_outlined, 'Analytics'),
+                  _buildNavItem(2, Icons.local_fire_department_rounded, Icons.local_fire_department_outlined, 'Heat'),
+                  _buildNavItem(3, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isSelected = _selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppColors.grey800 : AppColors.grey100)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : inactiveIcon,
+              color: isSelected
+                  ? (isDark ? AppColors.darkText : AppColors.lightText)
+                  : AppColors.grey500,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? (isDark ? AppColors.darkText : AppColors.lightText)
+                    : AppColors.grey500,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -281,77 +348,123 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   Widget _buildHomeScreen() {
-    // Calculate days until payday (assuming 25th of each month)
-    final now = DateTime.now();
-    final nextPayday = now.day <= 25
-        ? DateTime(now.year, now.month, 25)
-        : DateTime(now.year, now.month + 1, 25);
-    final daysUntilPayday = nextPayday.difference(now).inDays;
-
-    // Mock data - replace with actual data
-    final dailyBudget = 1500.0;
-    final todaySpent = 1200.0;
-    final monthlyBudget = 45000.0;
-    final totalSpent = 28000.0;
-    final spendingPercentage = (totalSpent / monthlyBudget * 100).round();
-
-    // Gamification data
-    final streakDays = 5;
-    final badgesEarned = 3;
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final langService = Provider.of<LanguageService>(context);
     final strings = AppStrings(langService.currentLanguage);
 
-    // Temperature status based on spending
-    String temperatureEmoji;
+    // Get data from services
+    final authService = Provider.of<AuthService>(context);
+    final budgetService = Provider.of<BudgetService>(context);
+    final transactionService = Provider.of<TransactionService>(context);
+
+    // Get user name for greeting
+    final userName = authService.currentUser?.fullName.split(' ').first ?? 'User';
+
+    // Get budget data from API
+    final dailyBudgetData = budgetService.dailyBudget;
+    final monthlyBudgetData = budgetService.monthlyBudget;
+    final overview = budgetService.overview;
+
+    // Daily budget values
+    final dailyBudget = dailyBudgetData?.budget ?? 0.0;
+    final todaySpent = dailyBudgetData?.spent ?? 0.0;
+
+    // Monthly budget values
+    final monthlyBudget = monthlyBudgetData?.budget ?? 0.0;
+    final totalSpent = monthlyBudgetData?.spent ?? 0.0;
+    final spendingPercentage = monthlyBudget > 0
+        ? (totalSpent / monthlyBudget * 100).round()
+        : 0;
+
+    // Gamification data from overview/auth
+    final streakDays = overview?.streak.currentStreak ?? authService.streak?.currentStreak ?? 0;
+    final badgesEarned = 0; // TODO: Implement badges in API
+
+    // Get recent transactions
+    final recentTransactions = transactionService.transactions.take(4).toList();
+
+    // Temperature status based on spending - Premium visual system
     String temperatureStatus;
     String temperatureMessage;
     Color temperatureColor;
+    IconData temperatureIcon;
 
     if (spendingPercentage <= 30) {
-      temperatureEmoji = '🟢';
       temperatureStatus = strings.tempCool;
       temperatureMessage = strings.tempCoolMsg;
-      temperatureColor = AppColors.success;
+      temperatureColor = AppColors.tempCool;
+      temperatureIcon = Icons.check_circle_rounded;
     } else if (spendingPercentage <= 60) {
-      temperatureEmoji = '🟡';
       temperatureStatus = strings.tempWarm;
       temperatureMessage = strings.tempWarmMsg;
-      temperatureColor = AppColors.warning;
+      temperatureColor = AppColors.tempWarm;
+      temperatureIcon = Icons.trending_up_rounded;
     } else if (spendingPercentage <= 85) {
-      temperatureEmoji = '🟠';
       temperatureStatus = strings.tempHot;
       temperatureMessage = strings.tempHotMsg;
-      temperatureColor = AppColors.error;
+      temperatureColor = AppColors.tempHot;
+      temperatureIcon = Icons.warning_amber_rounded;
     } else if (spendingPercentage <= 100) {
-      temperatureEmoji = '🔴';
       temperatureStatus = strings.tempBoiling;
       temperatureMessage = strings.tempBoilingMsg;
-      temperatureColor = AppColors.hot;
+      temperatureColor = AppColors.tempBoiling;
+      temperatureIcon = Icons.error_rounded;
     } else {
-      temperatureEmoji = '🔥';
       temperatureStatus = strings.tempOverheat;
       temperatureMessage = strings.tempOverheatMsg;
-      temperatureColor = AppColors.hot;
+      temperatureColor = AppColors.tempOverheat;
+      temperatureIcon = Icons.whatshot_rounded;
+    }
+
+    // Show loading indicator while fetching initial data
+    if (_isInitialLoading) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkBackground
+            : AppColors.lightBackground,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDark ? AppColors.white : AppColors.black,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading your dashboard...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
       backgroundColor: isDark
           ? AppColors.darkBackground
           : AppColors.lightBackground,
-      body: SingleChildScrollView(
-        child: Column(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadDashboardData,
+          color: isDark ? AppColors.white : AppColors.black,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Header Section
+            // Offline Banner
+            const OfflineBanner(),
+            // Top Header Section - Premium Design
             Container(
-              padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.darkSurface
-                    : AppColors.lightSurface,
-              ),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -359,49 +472,69 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     duration: const Duration(milliseconds: 400),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              strings.greeting('John'),
+                              strings.greeting(userName),
                               style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
                                 color: isDark
                                     ? AppColors.darkText
                                     : AppColors.lightText,
-                                letterSpacing: -0.5,
+                                letterSpacing: -1,
+                                height: 1.1,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               strings.spendingOverview,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 15,
                                 color: isDark
                                     ? AppColors.darkTextSecondary
                                     : AppColors.lightTextSecondary,
                                 fontWeight: FontWeight.w500,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkElevated
-                                : AppColors.lightBackground,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.notifications_outlined,
-                            color: isDark
-                                ? AppColors.darkText
-                                : AppColors.lightText,
-                            size: 22,
-                          ),
+                        Row(
+                          children: [
+                            // Sync Status Indicator
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.darkElevated
+                                    : AppColors.grey100,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const SyncStatusIndicator(iconSize: 24),
+                            ),
+                            const SizedBox(width: 8),
+                            // Notification Icon
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.darkElevated
+                                    : AppColors.grey100,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                Icons.notifications_none_rounded,
+                                color: isDark
+                                    ? AppColors.darkText
+                                    : AppColors.lightText,
+                                size: 24,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -412,54 +545,72 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     duration: const Duration(milliseconds: 400),
                     child: Row(
                       children: [
+                        // Streak Badge - Premium pill design
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.primary.withOpacity(0.2),
-                              width: 1,
-                            ),
+                            color: isDark
+                                ? AppColors.darkElevated
+                                : AppColors.grey100,
+                            borderRadius: BorderRadius.circular(24),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('🔥', style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 6),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 strings.dayStreak(streakDays),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
+                                  color: isDark
+                                      ? AppColors.darkText
+                                      : AppColors.lightText,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 10),
+                        // Badges - Premium pill design
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.accent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.accent.withOpacity(0.2),
-                              width: 1,
-                            ),
+                            color: isDark
+                                ? AppColors.darkElevated
+                                : AppColors.grey100,
+                            borderRadius: BorderRadius.circular(24),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('⭐', style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 6),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 strings.badges(badgesEarned),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.accent,
+                                  color: isDark
+                                      ? AppColors.darkText
+                                      : AppColors.lightText,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ],
@@ -478,28 +629,47 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  // Main Balance Card
+                  // Main Balance Card - Premium Design
                   FadeInUp(
                     delay: const Duration(milliseconds: 200),
                     duration: const Duration(milliseconds: 400),
                     child: Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkSurface
-                            : AppColors.lightSurface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.darkElevated
-                              : AppColors.grey200,
-                        ),
+                        gradient: isDark
+                            ? const LinearGradient(
+                                colors: [Color(0xFF1A1A1A), Color(0xFF0D0D0D)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: isDark ? null : AppColors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: isDark
+                            ? Border.all(color: AppColors.grey800, width: 1)
+                            : null,
+                        boxShadow: isDark
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Header row with status indicator
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,46 +682,46 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                           ? AppColors.darkTextSecondary
                                           : AppColors.lightTextSecondary,
                                       fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     '$_currencySymbol${_formatNumber(dailyBudget)}',
                                     style: TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 42,
+                                      fontWeight: FontWeight.w800,
                                       color: isDark
                                           ? AppColors.darkText
                                           : AppColors.lightText,
-                                      letterSpacing: -1,
+                                      letterSpacing: -2,
                                       height: 1,
                                     ),
                                   ),
                                 ],
                               ),
+                              // Premium Status Indicator - No emojis
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: _getTemperatureColor(spendingPercentage).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: _getTemperatureColor(spendingPercentage).withOpacity(0.2),
-                                    width: 1,
-                                  ),
+                                  color: temperatureColor.withOpacity(isDark ? 0.15 : 0.1),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Column(
                                   children: [
-                                    Text(
-                                      temperatureEmoji,
-                                      style: const TextStyle(fontSize: 24),
+                                    Icon(
+                                      temperatureIcon,
+                                      size: 28,
+                                      color: temperatureColor,
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      temperatureStatus,
+                                      temperatureStatus.toUpperCase(),
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
-                                        color: _getTemperatureColor(spendingPercentage),
+                                        color: temperatureColor,
+                                        letterSpacing: 0.5,
                                       ),
                                     ),
                                   ],
@@ -559,110 +729,152 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          // Progress Bar
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: TweenAnimationBuilder(
-                              tween: Tween<double>(begin: 0, end: todaySpent / dailyBudget),
-                              duration: const Duration(milliseconds: 1200),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, double value, child) {
-                                return LinearProgressIndicator(
-                                  value: value,
-                                  minHeight: 8,
-                                  backgroundColor: isDark
-                                      ? AppColors.darkElevated
-                                      : AppColors.lightTextSecondary.withOpacity(0.2),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    _getTemperatureColor(spendingPercentage),
-                                  ),
-                                );
-                              },
+                          const SizedBox(height: 28),
+                          // Premium Progress Bar with glow effect
+                          Container(
+                            height: 8,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: isDark
+                                  ? AppColors.grey800
+                                  : AppColors.grey200,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: TweenAnimationBuilder(
+                                tween: Tween<double>(begin: 0, end: dailyBudget > 0 ? (todaySpent / dailyBudget).clamp(0.0, 1.0) : 0.0),
+                                duration: const Duration(milliseconds: 1200),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, double value, child) {
+                                  return FractionallySizedBox(
+                                    alignment: Alignment.centerLeft,
+                                    widthFactor: value.isNaN || value.isInfinite ? 0.0 : value,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            temperatureColor,
+                                            temperatureColor.withOpacity(0.8),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: temperatureColor.withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
+                          // Spent / Remaining row with refined typography
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    strings.spent,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
-                                      fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      strings.spent.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark
+                                            ? AppColors.darkTextSecondary
+                                            : AppColors.lightTextSecondary,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 1,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$_currencySymbol${_formatNumber(todaySpent)}',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark
-                                          ? AppColors.darkText
-                                          : AppColors.lightText,
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '$_currencySymbol${_formatNumber(todaySpent)}',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark
+                                            ? AppColors.darkText
+                                            : AppColors.lightText,
+                                        letterSpacing: -0.5,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    strings.remaining,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                              Container(
+                                height: 40,
+                                width: 1,
+                                color: isDark
+                                    ? AppColors.grey800
+                                    : AppColors.grey200,
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        strings.remaining.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark
+                                              ? AppColors.darkTextSecondary
+                                              : AppColors.lightTextSecondary,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '$_currencySymbol${_formatNumber(dailyBudget - todaySpent)}',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$_currencySymbol${_formatNumber(dailyBudget - todaySpent)}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.success,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
+                          // Status message with refined styling
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             decoration: BoxDecoration(
-                              color: _getTemperatureColor(spendingPercentage).withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _getTemperatureColor(spendingPercentage).withOpacity(0.1),
-                                width: 1,
-                              ),
+                              color: temperatureColor.withOpacity(isDark ? 0.1 : 0.06),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Row(
                               children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 16,
-                                  color: _getTemperatureColor(spendingPercentage),
+                                Container(
+                                  width: 4,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: temperatureColor,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 14),
                                 Expanded(
                                   child: Text(
                                     temperatureMessage,
                                     style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _getTemperatureColor(spendingPercentage),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark
+                                          ? AppColors.darkText
+                                          : AppColors.lightText,
+                                      height: 1.4,
                                     ),
                                   ),
                                 ),
@@ -676,21 +888,31 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
                   const SizedBox(height: 20),
 
-                  // Quick Actions
+                  // Quick Actions - Premium Design
                   FadeInUp(
                     delay: const Duration(milliseconds: 300),
                     duration: const Duration(milliseconds: 400),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.white
-                            : AppColors.black,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: InkWell(
-                        onTap: () => _showQuickCheckInDialog(),
-                        borderRadius: BorderRadius.circular(12),
+                    child: GestureDetector(
+                      onTap: () => _showQuickCheckInDialog(),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [AppColors.primary, AppColors.primaryDark]
+                                : [AppColors.black, const Color(0xFF1A1A1A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isDark ? AppColors.primary : AppColors.black).withOpacity(0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -699,60 +921,60 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.grey200
-                                        : AppColors.grey900,
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white.withOpacity(isDark ? 0.2 : 0.15),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.bolt_rounded,
-                                    color: isDark
-                                        ? AppColors.black
-                                        : AppColors.white,
-                                    size: 20,
+                                    color: Colors.white,
+                                    size: 22,
                                   ),
                                 ),
                                 const Spacer(),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: isDark
-                                        ? AppColors.grey200
-                                        : AppColors.grey900,
-                                    borderRadius: BorderRadius.circular(6),
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                  child: Text(
-                                    '10 sec',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? AppColors.black
-                                          : AppColors.white,
-                                    ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.timer_outlined,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '10 sec',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             Text(
                               strings.quickCheckIn,
-                              style: TextStyle(
-                                fontSize: 18,
+                              style: const TextStyle(
+                                fontSize: 20,
                                 fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.black
-                                    : AppColors.white,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               strings.trackSpending,
                               style: TextStyle(
-                                fontSize: 13,
-                                color: isDark
-                                    ? AppColors.grey600
-                                    : AppColors.grey400,
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.7),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -807,22 +1029,32 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
             const SizedBox(height: 24),
 
-            // Monthly Overview
+            // Monthly Overview - Premium Design
             FadeInUp(
               delay: const Duration(milliseconds: 400),
               duration: const Duration(milliseconds: 600),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: isDark
                       ? AppColors.darkSurface
-                      : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(12),
+                      : AppColors.white,
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: isDark
-                        ? AppColors.darkElevated
+                        ? AppColors.grey800
                         : AppColors.grey200,
+                    width: 1,
                   ),
+                  boxShadow: isDark
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,37 +1064,34 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       children: [
                         Text(
                           strings.thisMonth,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.darkText
+                                : AppColors.lightText,
+                            letterSpacing: -0.3,
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: spendingPercentage > 80
-                                ? AppColors.error.withOpacity(0.1)
-                                : spendingPercentage > 60
-                                    ? AppColors.warning.withOpacity(0.1)
-                                    : AppColors.success.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            color: temperatureColor.withOpacity(isDark ? 0.15 : 0.1),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             strings.percentSpent(spendingPercentage),
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: spendingPercentage > 80
-                                  ? AppColors.error
-                                  : spendingPercentage > 60
-                                      ? AppColors.warning
-                                      : AppColors.success,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: temperatureColor,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     Row(
                       children: [
                         Expanded(
@@ -870,20 +1099,26 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                strings.budget,
+                                strings.budget.toUpperCase(),
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   color: isDark
                                       ? AppColors.darkTextSecondary
                                       : AppColors.lightTextSecondary,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
                                 '$_currencySymbol${_formatNumber(monthlyBudget)}',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark
+                                      ? AppColors.darkText
+                                      : AppColors.lightText,
+                                  letterSpacing: -1,
                                 ),
                               ),
                             ],
@@ -893,35 +1128,34 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           height: 50,
                           width: 1,
                           color: isDark
-                              ? AppColors.darkElevated
-                              : AppColors.lightTextSecondary.withOpacity(0.3),
+                              ? AppColors.grey800
+                              : AppColors.grey200,
                         ),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.only(left: 16),
+                            padding: const EdgeInsets.only(left: 20),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  strings.spent,
+                                  strings.spent.toUpperCase(),
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: isDark
                                         ? AppColors.darkTextSecondary
                                         : AppColors.lightTextSecondary,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Text(
                                   '$_currencySymbol${_formatNumber(totalSpent)}',
                                   style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: spendingPercentage > 80
-                                        ? AppColors.error
-                                        : spendingPercentage > 60
-                                            ? AppColors.warning
-                                            : AppColors.success,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w800,
+                                    color: temperatureColor,
+                                    letterSpacing: -1,
                                   ),
                                 ),
                               ],
@@ -930,21 +1164,46 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: totalSpent / monthlyBudget,
-                        minHeight: 8,
-                        backgroundColor: isDark
-                            ? AppColors.darkElevated
-                            : AppColors.lightTextSecondary.withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          spendingPercentage > 80
-                              ? AppColors.error
-                              : spendingPercentage > 60
-                                  ? AppColors.warning
-                                  : AppColors.success,
+                    const SizedBox(height: 20),
+                    // Premium progress bar
+                    Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: isDark
+                            ? AppColors.grey800
+                            : AppColors.grey200,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: TweenAnimationBuilder(
+                          tween: Tween<double>(begin: 0, end: monthlyBudget > 0 ? (totalSpent / monthlyBudget).clamp(0.0, 1.0) : 0.0),
+                          duration: const Duration(milliseconds: 1200),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, double value, child) {
+                            return FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: value.isNaN || value.isInfinite ? 0.0 : value,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      temperatureColor,
+                                      temperatureColor.withOpacity(0.8),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: temperatureColor.withOpacity(0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -982,28 +1241,80 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             const SizedBox(height: 12),
 
             // Transactions List
-            ...List.generate(
-              _recentTransactions.length,
-              (index) {
-                final transaction = _recentTransactions[index];
-                return FadeInUp(
-                  delay: Duration(milliseconds: 600 + (index * 100)),
-                  duration: const Duration(milliseconds: 600),
-                  child: _buildTransactionCard(
-                    transaction['title'],
-                    transaction['amount'],
-                    transaction['category'],
-                    transaction['icon'],
+            if (recentTransactions.isEmpty && !_isInitialLoading)
+              FadeInUp(
+                delay: const Duration(milliseconds: 600),
+                duration: const Duration(milliseconds: 600),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkSurface
+                        : AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.darkElevated
+                          : AppColors.grey200,
+                    ),
                   ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 100),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 48,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No transactions yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppColors.darkText
+                              : AppColors.lightText,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Add your first expense to get started',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ...List.generate(
+                recentTransactions.length,
+                (index) {
+                  final transaction = recentTransactions[index];
+                  return FadeInUp(
+                    delay: Duration(milliseconds: 600 + (index * 100)),
+                    duration: const Duration(milliseconds: 600),
+                    child: _buildTransactionCardFromApi(transaction),
+                  );
+                },
               ),
+
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1018,7 +1329,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   void _showQuickCheckInDialog() {
-    final dailyBudget = 1500.0;
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+    final dailyBudget = budgetService.dailyBudget?.budget ?? 0.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final langService = Provider.of<LanguageService>(context, listen: false);
     final strings = AppStrings(langService.currentLanguage);
@@ -1379,50 +1691,56 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isDark
               ? AppColors.darkSurface
-              : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(12),
+              : AppColors.white,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isDark
-                ? AppColors.darkElevated
+                ? AppColors.grey800
                 : AppColors.grey200,
+            width: 1,
           ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.darkElevated
-                    : AppColors.grey100,
-                borderRadius: BorderRadius.circular(8),
+                color: color.withOpacity(isDark ? 0.15 : 0.1),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 icon,
-                color: isDark
-                    ? AppColors.darkText
-                    : AppColors.lightText,
-                size: 20,
+                color: color,
+                size: 22,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               title,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: isDark
                     ? AppColors.darkText
                     : AppColors.lightText,
+                letterSpacing: -0.3,
               ),
             ),
           ],
@@ -1562,5 +1880,165 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         ],
       ),
     );
+  }
+
+  Widget _buildTransactionCardFromApi(Transaction transaction) {
+    final isIncome = transaction.isIncome;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final icon = _getCategoryIcon(transaction.category);
+    final categoryDisplay = _getCategoryDisplayName(transaction.category);
+    final categoryColor = _getCategoryColorForTransaction(transaction.category);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkSurface
+            : AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? AppColors.grey800
+              : AppColors.grey200,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: categoryColor.withOpacity(isDark ? 0.15 : 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              icon,
+              color: categoryColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.description ?? categoryDisplay,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkText
+                        : AppColors.lightText,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  categoryDisplay,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${isIncome ? '+' : '-'}$_currencySymbol${_formatNumber(transaction.amount)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isIncome ? AppColors.primary : AppColors.accent,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getCategoryColorForTransaction(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+      case 'chop':
+        return AppColors.categoryFood;
+      case 'transport':
+      case 'move':
+        return AppColors.categoryTransport;
+      case 'bills':
+      case 'must_pay':
+        return AppColors.categoryBills;
+      case 'relationship':
+        return AppColors.categoryEntertainment;
+      case 'flex':
+      case 'entertainment':
+        return AppColors.categoryShopping;
+      case 'savings':
+        return AppColors.categoryHealth;
+      case 'income':
+      case 'salary':
+        return AppColors.primary;
+      default:
+        return AppColors.categoryOther;
+    }
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+      case 'chop':
+        return Icons.restaurant;
+      case 'transport':
+      case 'move':
+        return Icons.directions_car;
+      case 'bills':
+      case 'must_pay':
+        return Icons.receipt;
+      case 'relationship':
+        return Icons.favorite;
+      case 'flex':
+      case 'entertainment':
+        return Icons.celebration;
+      case 'savings':
+        return Icons.savings;
+      case 'income':
+      case 'salary':
+        return Icons.account_balance_wallet;
+      default:
+        return Icons.attach_money;
+    }
+  }
+
+  String _getCategoryDisplayName(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+      case 'chop':
+        return '🍔 CHOP';
+      case 'transport':
+      case 'move':
+        return '🚗 MOVE';
+      case 'bills':
+      case 'must_pay':
+        return '🏠 MUST PAY';
+      case 'relationship':
+        return '❤️ RELATIONSHIP';
+      case 'flex':
+      case 'entertainment':
+        return '💰 FLEX';
+      case 'savings':
+        return '💎 SAVINGS';
+      case 'income':
+      case 'salary':
+        return '💵 INCOME';
+      default:
+        return '📱 OTHER';
+    }
   }
 }

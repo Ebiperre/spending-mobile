@@ -1,16 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
+import 'package:spending_mobile/services/settings_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class Step3Calculation extends StatefulWidget {
   final double income;
   final double expenses;
   final int payday;
+  final double? rent;
+  final double? transport;
+  final double? bills;
+  final double? savings;
+  final double? other;
 
   const Step3Calculation({
     super.key,
     required this.income,
     required this.expenses,
     required this.payday,
+    this.rent,
+    this.transport,
+    this.bills,
+    this.savings,
+    this.other,
   });
 
   @override
@@ -21,6 +36,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _showCalculation = false;
+  bool _isSaving = false;
+  bool _savedSuccessfully = false;
 
   @override
   void initState() {
@@ -33,11 +50,55 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    // Start animation after a delay
+    // Start animation and save to API after a delay
     Future.delayed(const Duration(milliseconds: 500), () {
       _controller.forward();
       setState(() => _showCalculation = true);
+      _saveFinancialProfile();
     });
+  }
+
+  Future<void> _saveFinancialProfile() async {
+    setState(() => _isSaving = true);
+
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+
+    final success = await settingsService.saveFinancialProfile(
+      monthlyIncome: widget.income,
+      salaryDay: widget.payday,
+      rent: widget.rent ?? 0,
+      transport: widget.transport ?? 0,
+      bills: widget.bills ?? 0,
+      savingsTarget: widget.savings ?? 0,
+      otherFixed: widget.other ?? 0,
+    );
+
+    if (success) {
+      // Refresh user data to get the new financial profile
+      await authService.fetchCurrentUser();
+      // Calculate budget based on new profile
+      await budgetService.calculateBudget();
+      budgetService.fetchDailyBudget();
+      budgetService.fetchMonthlyBudget();
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSaving = false;
+        _savedSuccessfully = success;
+      });
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(settingsService.error ?? 'Failed to save financial profile'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -60,8 +121,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -92,7 +153,7 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                 duration: const Duration(milliseconds: 600),
                 child: Text(
                   'Step 3 of 5',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 14, color: AppColors.grey600),
                 ),
               ),
 
@@ -109,14 +170,14 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          const Color(0xFF6366F1),
-                          const Color(0xFF4F46E5),
+                          AppColors.darkSurface,
+                          AppColors.primary,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.3),
+                          color: AppColors.primary.withOpacity(0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -152,16 +213,16 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF1A1A1A)
-                          : Colors.white,
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        color: AppColors.warning.withOpacity(0.3),
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFF59E0B).withOpacity(0.1),
+                          color: AppColors.warning.withOpacity(0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -174,7 +235,7 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
+                            color: AppColors.grey600,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -188,8 +249,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                                 fontSize: 28,
                                 fontWeight: FontWeight.w700,
                                 color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : const Color(0xFF1A1A1A),
+                                    ? AppColors.white
+                                    : AppColors.darkSurface,
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -203,8 +264,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -1,
                                     color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white
-                                        : const Color(0xFF1A1A1A),
+                                        ? AppColors.white
+                                        : AppColors.darkSurface,
                                     height: 1,
                                   ),
                                 );
@@ -218,7 +279,7 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
+                            color: AppColors.grey600,
                           ),
                         ),
                       ],
@@ -241,8 +302,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
+                              ? AppColors.white
+                              : AppColors.darkSurface,
                         ),
                       ),
                       const Text(
@@ -268,8 +329,8 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
                         Navigator.pushNamed(context, '/onboarding/step4');
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
@@ -294,7 +355,7 @@ class _Step3CalculationState extends State<Step3Calculation> with SingleTickerPr
     return Container(
       height: 4,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF6366F1) : Colors.grey.shade300,
+        color: isActive ? AppColors.primary : AppColors.grey300,
         borderRadius: BorderRadius.circular(2),
       ),
     );

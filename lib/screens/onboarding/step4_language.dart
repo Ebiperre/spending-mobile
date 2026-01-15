@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class Step4Language extends StatefulWidget {
   const Step4Language({super.key});
@@ -15,19 +16,19 @@ class _Step4LanguageState extends State<Step4Language> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF0A0A0A)
-            : const Color(0xFFF8F9FA),
+            ? AppColors.darkBackground
+            : AppColors.lightBackground,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
             color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : const Color(0xFF1A1A1A),
+                ? AppColors.white
+                : AppColors.darkSurface,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -63,7 +64,7 @@ class _Step4LanguageState extends State<Step4Language> {
                 duration: const Duration(milliseconds: 600),
                 child: Text(
                   'Step 4 of 5',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 14, color: AppColors.grey600),
                 ),
               ),
 
@@ -79,8 +80,8 @@ class _Step4LanguageState extends State<Step4Language> {
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : const Color(0xFF1A1A1A),
+                        ? AppColors.white
+                        : AppColors.darkSurface,
                   ),
                 ),
               ),
@@ -92,7 +93,7 @@ class _Step4LanguageState extends State<Step4Language> {
                 duration: const Duration(milliseconds: 600),
                 child: Text(
                   'Choose your preferred language mode',
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 16, color: AppColors.grey600),
                 ),
               ),
 
@@ -157,8 +158,8 @@ class _Step4LanguageState extends State<Step4Language> {
                       Navigator.pushNamed(context, '/onboarding/step5');
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
@@ -183,7 +184,7 @@ class _Step4LanguageState extends State<Step4Language> {
     return Container(
       height: 4,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF6366F1) : Colors.grey.shade300,
+        color: isActive ? AppColors.primary : AppColors.grey300,
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -204,17 +205,17 @@ class _Step4LanguageState extends State<Step4Language> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6366F1).withOpacity(0.1)
+              ? AppColors.primary.withOpacity(0.1)
               : Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1A1A1A)
-                  : Colors.white,
+                  ? AppColors.darkSurface
+                  : AppColors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6366F1)
+                ? AppColors.primary
                 : Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF2A2A2A)
-                    : Colors.grey.shade200,
+                    ? AppColors.darkElevated
+                    : AppColors.grey200,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -235,17 +236,17 @@ class _Step4LanguageState extends State<Step4Language> {
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: isSelected
-                          ? const Color(0xFF6366F1)
+                          ? AppColors.primary
                           : Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
+                              ? AppColors.white
+                              : AppColors.darkSurface,
                     ),
                   ),
                 ),
                 if (isSelected)
                   Icon(
                     Icons.check_circle,
-                    color: const Color(0xFF6366F1),
+                    color: AppColors.primary,
                     size: 28,
                   ),
               ],
@@ -255,7 +256,7 @@ class _Step4LanguageState extends State<Step4Language> {
               description,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: AppColors.grey600,
               ),
             ),
             const SizedBox(height: 12),
@@ -263,8 +264,8 @@ class _Step4LanguageState extends State<Step4Language> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF2A2A2A)
-                    : Colors.grey.shade100,
+                    ? AppColors.darkElevated
+                    : AppColors.grey100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -276,8 +277,8 @@ class _Step4LanguageState extends State<Step4Language> {
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade300
-                          : Colors.grey.shade800,
+                          ? AppColors.grey300
+                          : AppColors.grey800,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -287,8 +288,8 @@ class _Step4LanguageState extends State<Step4Language> {
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade400
-                          : Colors.grey.shade700,
+                          ? AppColors.grey400
+                          : AppColors.grey700,
                     ),
                   ),
                 ],

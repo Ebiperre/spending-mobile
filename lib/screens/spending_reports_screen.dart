@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
-import 'package:spending_mobile/services/language_service.dart';
-import 'package:spending_mobile/utils/app_strings.dart';
+import 'package:spending_mobile/services/budget_service.dart';
+import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/models/analytics.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
 class SpendingReportsScreen extends StatefulWidget {
@@ -14,38 +15,50 @@ class SpendingReportsScreen extends StatefulWidget {
 
 class _SpendingReportsScreenState extends State<SpendingReportsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Mock data for reports
-  final Map<String, double> _weeklyData = {
-    'Mon': 2500,
-    'Tue': 4200,
-    'Wed': 1800,
-    'Thu': 3500,
-    'Fri': 6200,
-    'Sat': 8500,
-    'Sun': 2100,
-  };
-
-  final Map<String, double> _monthlyData = {
-    'Week 1': 28000,
-    'Week 2': 35000,
-    'Week 3': 22000,
-    'Week 4': 31000,
-  };
-
-  final Map<String, Map<String, dynamic>> _categoryBreakdown = {
-    'Food': {'amount': 32000.0, 'percentage': 28, 'icon': Icons.restaurant, 'color': Colors.orange},
-    'Transport': {'amount': 18000.0, 'percentage': 16, 'icon': Icons.directions_car, 'color': Colors.blue},
-    'Bills': {'amount': 25000.0, 'percentage': 22, 'icon': Icons.receipt, 'color': Colors.red},
-    'Lifestyle': {'amount': 22000.0, 'percentage': 19, 'icon': Icons.shopping_bag, 'color': Colors.purple},
-    'Relationship': {'amount': 12000.0, 'percentage': 10, 'icon': Icons.favorite, 'color': Colors.pink},
-    'Other': {'amount': 6000.0, 'percentage': 5, 'icon': Icons.more_horiz, 'color': Colors.grey},
-  };
+  bool _isInitialLoading = true;
+  WeeklyReport? _monthlyReport;
+  String _currencySymbol = '₦';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+    final currency = await PreferencesService.getCurrency();
+
+    setState(() {
+      _currencySymbol = PreferencesService.getCurrencySymbol(currency);
+    });
+
+    // Fetch both weekly and monthly reports
+    await Future.wait([
+      budgetService.fetchWeeklyReport(),
+      _loadMonthlyReport(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _isInitialLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMonthlyReport() async {
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+    final report = await budgetService.fetchMonthlyReport();
+    if (mounted) {
+      setState(() {
+        _monthlyReport = report;
+      });
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _loadData();
   }
 
   @override
@@ -54,9 +67,57 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     super.dispose();
   }
 
-  double get _weeklyTotal => _weeklyData.values.fold(0, (sum, val) => sum + val);
-  double get _monthlyTotal => _monthlyData.values.fold(0, (sum, val) => sum + val);
-  double get _dailyAverage => _weeklyTotal / 7;
+  // Category icon mapping
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant;
+      case 'transport':
+        return Icons.directions_car;
+      case 'bills':
+        return Icons.receipt;
+      case 'entertainment':
+        return Icons.celebration;
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'health':
+        return Icons.medical_services;
+      case 'education':
+        return Icons.school;
+      case 'lifestyle':
+        return Icons.favorite;
+      case 'relationship':
+        return Icons.people;
+      default:
+        return Icons.more_horiz;
+    }
+  }
+
+  // Category color mapping
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return Colors.orange;
+      case 'transport':
+        return Colors.blue;
+      case 'bills':
+        return Colors.red;
+      case 'entertainment':
+        return Colors.purple;
+      case 'shopping':
+        return Colors.teal;
+      case 'health':
+        return Colors.green;
+      case 'education':
+        return Colors.indigo;
+      case 'lifestyle':
+        return Colors.pink;
+      case 'relationship':
+        return Colors.amber;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,208 +163,342 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildWeeklyReport(isDark),
-          _buildMonthlyReport(isDark),
-        ],
+      body: SafeArea(
+        top: false,
+        child: _isInitialLoading
+            ? Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDark ? AppColors.white : AppColors.black,
+                  ),
+                ),
+              )
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildWeeklyReport(isDark),
+                  _buildMonthlyReport(isDark),
+                ],
+              ),
       ),
     );
   }
 
   Widget _buildWeeklyReport(bool isDark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Summary Cards
-          FadeInDown(
-            duration: const Duration(milliseconds: 300),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Total Spent',
-                    '₦${_formatNumber(_weeklyTotal)}',
-                    Icons.account_balance_wallet,
-                    AppColors.primary,
-                    isDark,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Daily Average',
-                    '₦${_formatNumber(_dailyAverage)}',
-                    Icons.trending_up,
-                    AppColors.success,
-                    isDark,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    final budgetService = Provider.of<BudgetService>(context);
+    final weeklyReport = budgetService.weeklyReport;
 
-          const SizedBox(height: 24),
+    if (weeklyReport == null) {
+      return _buildEmptyState(isDark, 'No weekly data available');
+    }
 
-          // Daily Breakdown Chart
-          FadeInDown(
-            delay: const Duration(milliseconds: 100),
-            duration: const Duration(milliseconds: 300),
-            child: _buildChartCard(
-              'Daily Breakdown',
-              _buildBarChart(_weeklyData, isDark),
-              isDark,
-            ),
-          ),
+    final summary = weeklyReport.summary;
+    final dailyBreakdown = weeklyReport.dailyBreakdown;
+    final categoryBreakdown = weeklyReport.categoryBreakdown;
 
-          const SizedBox(height: 24),
+    // Convert daily breakdown to chart data
+    final Map<String, double> weeklyData = {};
+    for (var day in dailyBreakdown) {
+      final dayName = _getDayName(day.date.weekday);
+      weeklyData[dayName] = day.spent;
+    }
 
-          // Category Breakdown
-          FadeInDown(
-            delay: const Duration(milliseconds: 200),
-            duration: const Duration(milliseconds: 300),
-            child: Text(
-              'Category Breakdown',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.darkText : AppColors.lightText,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+    final weeklyTotal = summary.totalSpent;
+    final dailyAverage = summary.avgDailySpend;
 
-          ..._categoryBreakdown.entries.toList().asMap().entries.map((entry) {
-            final index = entry.key;
-            final category = entry.value;
-            return FadeInUp(
-              delay: Duration(milliseconds: 250 + (index * 50)),
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      color: isDark ? AppColors.white : AppColors.black,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary Cards
+            FadeInDown(
               duration: const Duration(milliseconds: 300),
-              child: _buildCategoryItem(
-                category.key,
-                category.value,
-                isDark,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCard(
+                      'Total Spent',
+                      '$_currencySymbol${_formatNumber(weeklyTotal)}',
+                      Icons.account_balance_wallet,
+                      AppColors.primary,
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      'Daily Average',
+                      '$_currencySymbol${_formatNumber(dailyAverage)}',
+                      Icons.trending_up,
+                      AppColors.success,
+                      isDark,
+                    ),
+                  ),
+                ],
               ),
-            );
-          }),
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // Insights Section
-          FadeInUp(
-            delay: const Duration(milliseconds: 500),
-            duration: const Duration(milliseconds: 300),
-            child: _buildInsightsCard(isDark),
-          ),
+            // Daily Breakdown Chart
+            if (weeklyData.isNotEmpty)
+              FadeInDown(
+                delay: const Duration(milliseconds: 100),
+                duration: const Duration(milliseconds: 300),
+                child: _buildChartCard(
+                  'Daily Breakdown',
+                  _buildBarChart(weeklyData, isDark),
+                  isDark,
+                ),
+              ),
 
-          const SizedBox(height: 100),
-        ],
+            const SizedBox(height: 24),
+
+            // Category Breakdown
+            FadeInDown(
+              delay: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                'Category Breakdown',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.darkText : AppColors.lightText,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            if (categoryBreakdown.isEmpty)
+              _buildEmptyState(isDark, 'No category data')
+            else
+              ...categoryBreakdown.asMap().entries.map((entry) {
+                final index = entry.key;
+                final category = entry.value;
+                return FadeInUp(
+                  delay: Duration(milliseconds: 250 + (index * 50)),
+                  duration: const Duration(milliseconds: 300),
+                  child: _buildCategoryItemFromApi(category, isDark),
+                );
+              }),
+
+            const SizedBox(height: 24),
+
+            // Insights Section
+            FadeInUp(
+              delay: const Duration(milliseconds: 500),
+              duration: const Duration(milliseconds: 300),
+              child: _buildInsightsCard(weeklyReport, isDark),
+            ),
+
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMonthlyReport(bool isDark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    final report = _monthlyReport;
+
+    if (report == null) {
+      return _buildEmptyState(isDark, 'No monthly data available');
+    }
+
+    final summary = report.summary;
+    final dailyBreakdown = report.dailyBreakdown;
+
+    final monthlyTotal = summary.totalSpent;
+    final monthlyBudget = summary.totalBudget;
+    final savings = summary.savings;
+
+    // Group daily breakdown by week
+    final Map<String, double> monthlyData = {};
+    if (dailyBreakdown.isNotEmpty) {
+      int weekNum = 1;
+      double weekTotal = 0;
+      int dayCount = 0;
+
+      for (var day in dailyBreakdown) {
+        weekTotal += day.spent;
+        dayCount++;
+
+        if (dayCount == 7) {
+          monthlyData['Week $weekNum'] = weekTotal;
+          weekNum++;
+          weekTotal = 0;
+          dayCount = 0;
+        }
+      }
+
+      // Add remaining days as last week
+      if (dayCount > 0) {
+        monthlyData['Week $weekNum'] = weekTotal;
+      }
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      color: isDark ? AppColors.white : AppColors.black,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary Cards
+            FadeInDown(
+              duration: const Duration(milliseconds: 300),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCard(
+                      'Total Spent',
+                      '$_currencySymbol${_formatNumber(monthlyTotal)}',
+                      Icons.account_balance_wallet,
+                      AppColors.primary,
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      'Weekly Avg',
+                      '$_currencySymbol${_formatNumber(monthlyTotal / 4)}',
+                      Icons.calendar_view_week,
+                      AppColors.success,
+                      isDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            FadeInDown(
+              delay: const Duration(milliseconds: 50),
+              duration: const Duration(milliseconds: 300),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCard(
+                      'Budget',
+                      '$_currencySymbol${_formatNumber(monthlyBudget)}',
+                      Icons.savings,
+                      AppColors.warning,
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      savings >= 0 ? 'Saved' : 'Over Budget',
+                      '$_currencySymbol${_formatNumber(savings.abs())}',
+                      Icons.account_balance,
+                      savings >= 0 ? AppColors.success : AppColors.error,
+                      isDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Weekly Breakdown Chart
+            if (monthlyData.isNotEmpty)
+              FadeInDown(
+                delay: const Duration(milliseconds: 100),
+                duration: const Duration(milliseconds: 300),
+                child: _buildChartCard(
+                  'Weekly Breakdown',
+                  _buildBarChart(monthlyData, isDark),
+                  isDark,
+                ),
+              ),
+
+            const SizedBox(height: 24),
+
+            // Budget Progress
+            FadeInDown(
+              delay: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 300),
+              child: _buildBudgetProgressCard(monthlyTotal, monthlyBudget, isDark),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Check-in Stats Card
+            FadeInDown(
+              delay: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 300),
+              child: _buildCheckinStatsCard(summary.checkins, isDark),
+            ),
+
+            const SizedBox(height: 100),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark, String message) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Summary Cards
-          FadeInDown(
-            duration: const Duration(milliseconds: 300),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Total Spent',
-                    '₦${_formatNumber(_monthlyTotal)}',
-                    Icons.account_balance_wallet,
-                    AppColors.primary,
-                    isDark,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Weekly Avg',
-                    '₦${_formatNumber(_monthlyTotal / 4)}',
-                    Icons.calendar_view_week,
-                    AppColors.success,
-                    isDark,
-                  ),
-                ),
-              ],
-            ),
+          Icon(
+            Icons.bar_chart,
+            size: 64,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
           ),
-
           const SizedBox(height: 16),
-
-          FadeInDown(
-            delay: const Duration(milliseconds: 50),
-            duration: const Duration(milliseconds: 300),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Budget',
-                    '₦${_formatNumber(150000)}',
-                    Icons.savings,
-                    AppColors.warning,
-                    isDark,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Remaining',
-                    '₦${_formatNumber(150000 - _monthlyTotal)}',
-                    Icons.account_balance,
-                    _monthlyTotal > 150000 ? AppColors.error : AppColors.success,
-                    isDark,
-                  ),
-                ),
-              ],
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          // Weekly Breakdown Chart
-          FadeInDown(
-            delay: const Duration(milliseconds: 100),
-            duration: const Duration(milliseconds: 300),
-            child: _buildChartCard(
-              'Weekly Breakdown',
-              _buildBarChart(_monthlyData, isDark),
-              isDark,
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _refreshData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppColors.white : AppColors.black,
+              foregroundColor: isDark ? AppColors.black : AppColors.white,
             ),
+            child: const Text('Refresh'),
           ),
-
-          const SizedBox(height: 24),
-
-          // Budget Progress
-          FadeInDown(
-            delay: const Duration(milliseconds: 200),
-            duration: const Duration(milliseconds: 300),
-            child: _buildBudgetProgressCard(isDark),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Comparison Card
-          FadeInDown(
-            delay: const Duration(milliseconds: 300),
-            duration: const Duration(milliseconds: 300),
-            child: _buildComparisonCard(isDark),
-          ),
-
-          const SizedBox(height: 100),
         ],
       ),
     );
+  }
+
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'Mon';
+      case 2:
+        return 'Tue';
+      case 3:
+        return 'Wed';
+      case 4:
+        return 'Thu';
+      case 5:
+        return 'Fri';
+      case 6:
+        return 'Sat';
+      case 7:
+        return 'Sun';
+      default:
+        return '';
+    }
   }
 
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color, bool isDark) {
@@ -384,7 +579,14 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
   }
 
   Widget _buildBarChart(Map<String, double> data, bool isDark) {
+    if (data.isEmpty) {
+      return const SizedBox(height: 150);
+    }
+
     final maxValue = data.values.reduce((a, b) => a > b ? a : b);
+    if (maxValue == 0) {
+      return const SizedBox(height: 150);
+    }
 
     return SizedBox(
       height: 150,
@@ -397,7 +599,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                '₦${(entry.value / 1000).toStringAsFixed(0)}k',
+                '$_currencySymbol${(entry.value / 1000).toStringAsFixed(0)}k',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -429,7 +631,10 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     );
   }
 
-  Widget _buildCategoryItem(String name, Map<String, dynamic> data, bool isDark) {
+  Widget _buildCategoryItemFromApi(CategorySpending category, bool isDark) {
+    final icon = _getCategoryIcon(category.category);
+    final color = _getCategoryColor(category.category);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -445,12 +650,12 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (data['color'] as Color).withOpacity(0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              data['icon'] as IconData,
-              color: data['color'] as Color,
+              icon,
+              color: color,
               size: 22,
             ),
           ),
@@ -460,7 +665,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  _formatCategoryName(category.category),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -471,10 +676,10 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                    value: (data['percentage'] as int) / 100,
+                    value: category.percentage / 100,
                     minHeight: 6,
                     backgroundColor: isDark ? AppColors.darkElevated : AppColors.grey200,
-                    valueColor: AlwaysStoppedAnimation<Color>(data['color'] as Color),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
               ],
@@ -485,7 +690,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₦${_formatNumber(data['amount'] as double)}',
+                '$_currencySymbol${_formatNumber(category.total)}',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -493,7 +698,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
                 ),
               ),
               Text(
-                '${data['percentage']}%',
+                '${category.percentage.toStringAsFixed(0)}%',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -506,7 +711,30 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     );
   }
 
-  Widget _buildInsightsCard(bool isDark) {
+  String _formatCategoryName(String category) {
+    if (category.isEmpty) return 'Other';
+    return category[0].toUpperCase() + category.substring(1).toLowerCase();
+  }
+
+  Widget _buildInsightsCard(WeeklyReport report, bool isDark) {
+    final summary = report.summary;
+    final categoryBreakdown = report.categoryBreakdown;
+    final dailyBreakdown = report.dailyBreakdown;
+
+    // Find highest spending day
+    DailyBreakdown? highestDay;
+    for (var day in dailyBreakdown) {
+      if (highestDay == null || day.spent > highestDay.spent) {
+        highestDay = day;
+      }
+    }
+
+    // Find top category
+    CategorySpending? topCategory;
+    if (categoryBreakdown.isNotEmpty) {
+      topCategory = categoryBreakdown.first;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -538,26 +766,39 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
             ],
           ),
           const SizedBox(height: 16),
-          _buildInsightItem(
-            'You spent 23% more on Food this week compared to last week.',
-            Icons.trending_up,
-            AppColors.warning,
-            isDark,
-          ),
-          const SizedBox(height: 12),
-          _buildInsightItem(
-            'Saturday was your highest spending day (₦8,500).',
-            Icons.calendar_today,
-            AppColors.primary,
-            isDark,
-          ),
-          const SizedBox(height: 12),
-          _buildInsightItem(
-            'Great job! You stayed under budget for Transport.',
-            Icons.check_circle,
-            AppColors.success,
-            isDark,
-          ),
+          if (topCategory != null)
+            _buildInsightItem(
+              '${_formatCategoryName(topCategory.category)} was your top spending category (${topCategory.percentage.toStringAsFixed(0)}%)',
+              Icons.category,
+              _getCategoryColor(topCategory.category),
+              isDark,
+            ),
+          if (highestDay != null) ...[
+            const SizedBox(height: 12),
+            _buildInsightItem(
+              '${_getDayName(highestDay.date.weekday)} was your highest spending day ($_currencySymbol${_formatNumber(highestDay.spent)})',
+              Icons.calendar_today,
+              AppColors.primary,
+              isDark,
+            ),
+          ],
+          if (summary.savingsRate > 0) ...[
+            const SizedBox(height: 12),
+            _buildInsightItem(
+              'Great job! You saved ${summary.savingsRate.toStringAsFixed(0)}% of your budget',
+              Icons.check_circle,
+              AppColors.success,
+              isDark,
+            ),
+          ] else if (summary.savingsRate < 0) ...[
+            const SizedBox(height: 12),
+            _buildInsightItem(
+              'You went ${summary.savingsRate.abs().toStringAsFixed(0)}% over budget this week',
+              Icons.warning,
+              AppColors.error,
+              isDark,
+            ),
+          ],
         ],
       ),
     );
@@ -583,9 +824,9 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     );
   }
 
-  Widget _buildBudgetProgressCard(bool isDark) {
-    final percentage = (_monthlyTotal / 150000 * 100).clamp(0, 100);
-    final isOverBudget = _monthlyTotal > 150000;
+  Widget _buildBudgetProgressCard(double spent, double budget, bool isDark) {
+    final percentage = budget > 0 ? (spent / budget * 100).clamp(0, 150) : 0.0;
+    final isOverBudget = spent > budget;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -631,7 +872,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: percentage / 100,
+              value: (percentage / 100).clamp(0, 1),
               minHeight: 12,
               backgroundColor: isDark ? AppColors.darkElevated : AppColors.grey200,
               valueColor: AlwaysStoppedAnimation<Color>(
@@ -644,14 +885,14 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Spent: ₦${_formatNumber(_monthlyTotal)}',
+                'Spent: $_currencySymbol${_formatNumber(spent)}',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                 ),
               ),
               Text(
-                'Budget: ₦${_formatNumber(150000)}',
+                'Budget: $_currencySymbol${_formatNumber(budget)}',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -664,7 +905,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     );
   }
 
-  Widget _buildComparisonCard(bool isDark) {
+  Widget _buildCheckinStatsCard(CheckinStats checkins, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -678,7 +919,7 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'vs Last Month',
+            'Check-in Summary',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -689,19 +930,34 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
           Row(
             children: [
               Expanded(
-                child: _buildComparisonItem(
-                  'This Month',
-                  '₦${_formatNumber(_monthlyTotal)}',
-                  null,
+                child: _buildCheckinStatItem(
+                  'Total',
+                  checkins.total.toString(),
+                  AppColors.primary,
                   isDark,
                 ),
               ),
-              const SizedBox(width: 16),
               Expanded(
-                child: _buildComparisonItem(
-                  'Last Month',
-                  '₦${_formatNumber(128000)}',
-                  -9.4,
+                child: _buildCheckinStatItem(
+                  'Under',
+                  checkins.under.toString(),
+                  AppColors.success,
+                  isDark,
+                ),
+              ),
+              Expanded(
+                child: _buildCheckinStatItem(
+                  'On Track',
+                  checkins.exact.toString(),
+                  AppColors.warning,
+                  isDark,
+                ),
+              ),
+              Expanded(
+                child: _buildCheckinStatItem(
+                  'Over',
+                  checkins.over.toString(),
+                  AppColors.error,
                   isDark,
                 ),
               ),
@@ -712,46 +968,32 @@ class _SpendingReportsScreenState extends State<SpendingReportsScreen> with Sing
     );
   }
 
-  Widget _buildComparisonItem(String label, String value, double? change, bool isDark) {
+  Widget _buildCheckinStatItem(String label, String value, Color color, bool isDark) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: isDark ? AppColors.darkText : AppColors.lightText,
-          ),
-        ),
-        if (change != null) ...[
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                change > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 14,
-                color: change > 0 ? AppColors.error : AppColors.success,
-              ),
-              Text(
-                '${change.abs().toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: change > 0 ? AppColors.error : AppColors.success,
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }

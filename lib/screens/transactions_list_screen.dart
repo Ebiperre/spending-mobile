@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
+import 'package:spending_mobile/models/transaction.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
@@ -14,45 +16,73 @@ class TransactionsListScreen extends StatefulWidget {
 
 class _TransactionsListScreenState extends State<TransactionsListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedFilter = 'All';
+  final ScrollController _scrollController = ScrollController();
+  String _selectedFilter = 'all';
   String _selectedTimeRange = 'This Month';
   bool _isSearching = false;
+  bool _isInitialLoading = true;
 
-  final List<String> _filters = ['All', 'Food', 'Transport', 'Bills', 'Lifestyle', 'Relationship', 'Other'];
+  final List<Map<String, String>> _filters = [
+    {'value': 'all', 'label': 'All'},
+    {'value': 'food', 'label': 'Food'},
+    {'value': 'transport', 'label': 'Transport'},
+    {'value': 'bills', 'label': 'Bills'},
+    {'value': 'entertainment', 'label': 'Entertainment'},
+    {'value': 'shopping', 'label': 'Shopping'},
+    {'value': 'other', 'label': 'Other'},
+  ];
   final List<String> _timeRanges = ['Today', 'This Week', 'This Month', 'Last 3 Months', 'This Year'];
 
-  // Mock transactions data
-  final List<Map<String, dynamic>> _allTransactions = [
-    {'title': 'Okada to work', 'amount': -500.0, 'category': 'Transport', 'icon': Icons.local_taxi, 'date': DateTime.now()},
-    {'title': 'Lunch (Rice & Stew)', 'amount': -800.0, 'category': 'Food', 'icon': Icons.restaurant, 'date': DateTime.now()},
-    {'title': 'MTN Data', 'amount': -1000.0, 'category': 'Bills', 'icon': Icons.wifi, 'date': DateTime.now().subtract(const Duration(days: 1))},
-    {'title': 'Babe Birthday Gift', 'amount': -5000.0, 'category': 'Relationship', 'icon': Icons.card_giftcard, 'date': DateTime.now().subtract(const Duration(days: 1))},
-    {'title': 'Netflix Subscription', 'amount': -4500.0, 'category': 'Lifestyle', 'icon': Icons.tv, 'date': DateTime.now().subtract(const Duration(days: 2))},
-    {'title': 'Suya & Drinks', 'amount': -2500.0, 'category': 'Food', 'icon': Icons.fastfood, 'date': DateTime.now().subtract(const Duration(days: 3))},
-    {'title': 'Uber to Island', 'amount': -3500.0, 'category': 'Transport', 'icon': Icons.directions_car, 'date': DateTime.now().subtract(const Duration(days: 4))},
-    {'title': 'Electricity Bill', 'amount': -8000.0, 'category': 'Bills', 'icon': Icons.bolt, 'date': DateTime.now().subtract(const Duration(days: 5))},
-    {'title': 'Gym Membership', 'amount': -15000.0, 'category': 'Lifestyle', 'icon': Icons.fitness_center, 'date': DateTime.now().subtract(const Duration(days: 7))},
-    {'title': 'Groceries', 'amount': -12000.0, 'category': 'Food', 'icon': Icons.shopping_cart, 'date': DateTime.now().subtract(const Duration(days: 10))},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+    _scrollController.addListener(_onScroll);
+  }
 
-  List<Map<String, dynamic>> get _filteredTransactions {
-    var filtered = _allTransactions;
+  Future<void> _loadTransactions({bool refresh = false}) async {
+    final transactionService = Provider.of<TransactionService>(context, listen: false);
 
-    // Apply category filter
-    if (_selectedFilter != 'All') {
-      filtered = filtered.where((t) => t['category'] == _selectedFilter).toList();
+    await transactionService.fetchTransactions(
+      category: _selectedFilter == 'all' ? null : _selectedFilter,
+      refresh: refresh,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isInitialLoading = false;
+      });
     }
+  }
 
-    // Apply search filter
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final transactionService = Provider.of<TransactionService>(context, listen: false);
+      final hasMore = transactionService.pagination?.hasNextPage ?? false;
+      if (!transactionService.isLoading && hasMore) {
+        final nextPage = (transactionService.pagination?.page ?? 0) + 1;
+        transactionService.fetchTransactions(
+          page: nextPage,
+          category: _selectedFilter == 'all' ? null : _selectedFilter,
+        );
+      }
+    }
+  }
+
+  List<Transaction> get _filteredTransactions {
+    final transactionService = Provider.of<TransactionService>(context);
+    var transactions = transactionService.transactions;
+
+    // Apply search filter locally
     if (_searchController.text.isNotEmpty) {
       final query = _searchController.text.toLowerCase();
-      filtered = filtered.where((t) =>
-        t['title'].toString().toLowerCase().contains(query) ||
-        t['category'].toString().toLowerCase().contains(query)
+      transactions = transactions.where((t) =>
+        (t.description?.toLowerCase().contains(query) ?? false) ||
+        t.category.toLowerCase().contains(query)
       ).toList();
     }
 
-    return filtered;
+    return transactions;
   }
 
   String _formatDate(DateTime date) {
@@ -68,6 +98,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -134,10 +165,12 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filter chips
-          FadeInDown(
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Filter chips
+            FadeInDown(
             duration: const Duration(milliseconds: 300),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -149,17 +182,18 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
                   children: _filters.map((filter) => Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
-                      label: Text(filter),
-                      selected: _selectedFilter == filter,
+                      label: Text(filter['label']!),
+                      selected: _selectedFilter == filter['value'],
                       onSelected: (selected) {
                         setState(() {
-                          _selectedFilter = selected ? filter : 'All';
+                          _selectedFilter = selected ? filter['value']! : 'all';
                         });
+                        _loadTransactions(refresh: true);
                       },
                       selectedColor: isDark ? AppColors.white : AppColors.black,
                       checkmarkColor: isDark ? AppColors.black : AppColors.white,
                       labelStyle: TextStyle(
-                        color: _selectedFilter == filter
+                        color: _selectedFilter == filter['value']
                             ? (isDark ? AppColors.black : AppColors.white)
                             : (isDark ? AppColors.darkText : AppColors.lightText),
                         fontWeight: FontWeight.w500,
@@ -191,7 +225,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
                 children: [
                   _buildSummaryItem(
                     'Total Spent',
-                    '₦${_formatNumber(_filteredTransactions.fold(0.0, (sum, t) => sum + (t['amount'] as double).abs()))}',
+                    '₦${_formatNumber(_filteredTransactions.fold(0.0, (sum, t) => sum + t.amount.abs()))}',
                     AppColors.error,
                     isDark,
                   ),
@@ -213,41 +247,71 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
 
           // Transactions list
           Expanded(
-            child: _filteredTransactions.isEmpty
+            child: _isInitialLoading
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.receipt_long_outlined,
-                          size: 64,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No transactions found',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          ),
-                        ),
-                      ],
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDark ? AppColors.white : AppColors.black,
+                      ),
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredTransactions.length,
-                    itemBuilder: (context, index) {
-                      final transaction = _filteredTransactions[index];
-                      return FadeInUp(
-                        delay: Duration(milliseconds: 50 * index),
-                        duration: const Duration(milliseconds: 300),
-                        child: _buildTransactionItem(transaction, isDark),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                : _filteredTransactions.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 64,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No transactions found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => _loadTransactions(refresh: true),
+                        color: isDark ? AppColors.white : AppColors.black,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _filteredTransactions.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == _filteredTransactions.length) {
+                              final transactionService = Provider.of<TransactionService>(context);
+                              if (transactionService.isLoading) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isDark ? AppColors.white : AppColors.black,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            }
+                            final transaction = _filteredTransactions[index];
+                            return FadeInUp(
+                              delay: Duration(milliseconds: 50 * (index % 10)),
+                              duration: const Duration(milliseconds: 300),
+                              child: _buildTransactionItemFromApi(transaction, isDark),
+                            );
+                          },
+                        ),
+                      ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -275,8 +339,9 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> transaction, bool isDark) {
-    final isIncome = (transaction['amount'] as double) > 0;
+  Widget _buildTransactionItemFromApi(Transaction transaction, bool isDark) {
+    final isIncome = transaction.isIncome;
+    final icon = _getCategoryIcon(transaction.category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -299,7 +364,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              transaction['icon'] as IconData,
+              icon,
               color: isIncome ? AppColors.success : AppColors.error,
               size: 24,
             ),
@@ -310,7 +375,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction['title'] as String,
+                  transaction.description ?? _getCategoryLabel(transaction.category),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -321,7 +386,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
                 Row(
                   children: [
                     Text(
-                      transaction['category'] as String,
+                      _getCategoryLabel(transaction.category),
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -334,7 +399,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
                       ),
                     ),
                     Text(
-                      _formatDate(transaction['date'] as DateTime),
+                      _formatDate(transaction.transactionDate),
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -346,7 +411,7 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
             ),
           ),
           Text(
-            '${isIncome ? '+' : '-'}₦${_formatNumber((transaction['amount'] as double).abs())}',
+            '${isIncome ? '+' : '-'}₦${_formatNumber(transaction.amount)}',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -356,6 +421,48 @@ class _TransactionsListScreenState extends State<TransactionsListScreen> {
         ],
       ),
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant;
+      case 'transport':
+        return Icons.directions_car;
+      case 'bills':
+        return Icons.receipt;
+      case 'entertainment':
+        return Icons.celebration;
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'health':
+        return Icons.medical_services;
+      case 'education':
+        return Icons.school;
+      default:
+        return Icons.attach_money;
+    }
+  }
+
+  String _getCategoryLabel(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return 'Food';
+      case 'transport':
+        return 'Transport';
+      case 'bills':
+        return 'Bills';
+      case 'entertainment':
+        return 'Entertainment';
+      case 'shopping':
+        return 'Shopping';
+      case 'health':
+        return 'Health';
+      case 'education':
+        return 'Education';
+      default:
+        return 'Other';
+    }
   }
 
   String _formatNumber(double number) {

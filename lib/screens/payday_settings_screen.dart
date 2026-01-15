@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/services/settings_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
 
@@ -17,28 +20,85 @@ class _PaydaySettingsScreenState extends State<PaydaySettingsScreen> {
   String _selectedType = 'specific'; // specific, last_day, first_day
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final financialProfile = authService.financialProfile;
+
+    if (mounted && financialProfile != null) {
+      setState(() {
+        _selectedDay = financialProfile.salaryDay;
+      });
+    }
+  }
+
   Future<void> _handleSave() async {
     setState(() {
       _isLoading = true;
     });
 
-    // TODO: Implement actual payday save logic
-    await Future.delayed(const Duration(seconds: 1));
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+    final currentProfile = authService.financialProfile;
+
+    // Determine the actual day based on type
+    int actualDay = _selectedDay;
+    if (_selectedType == 'last_day') {
+      actualDay = 31; // Will be handled by backend
+    } else if (_selectedType == 'first_day') {
+      actualDay = 1;
+    }
+
+    final success = await settingsService.saveFinancialProfile(
+      monthlyIncome: currentProfile?.monthlyIncome ?? 0,
+      salaryDay: actualDay,
+      rent: currentProfile?.rent ?? 0,
+      transport: currentProfile?.transport ?? 0,
+      bills: currentProfile?.bills ?? 0,
+      savingsTarget: currentProfile?.savingsTarget ?? 0,
+      otherFixed: currentProfile?.otherFixed ?? 0,
+    );
+
+    if (!mounted) return;
 
     setState(() {
       _isLoading = false;
     });
 
-    if (mounted) {
+    if (success) {
+      // Refresh user data and budgets
+      await authService.fetchCurrentUser();
+      budgetService.fetchDailyBudget();
+      budgetService.fetchMonthlyBudget();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Payday settings updated'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Payday settings updated'),
-          backgroundColor: AppColors.success,
+          content: Text(settingsService.error ?? 'Failed to update payday'),
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
-      Navigator.pop(context);
     }
   }
 

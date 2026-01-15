@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
 
 class Step1BasicInfo extends StatefulWidget {
   const Step1BasicInfo({super.key});
@@ -31,8 +32,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -71,7 +72,7 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey600,
                     ),
                   ),
                 ),
@@ -89,8 +90,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                     ),
                   ),
                 ),
@@ -105,7 +106,7 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey600,
                     ),
                   ),
                 ),
@@ -120,40 +121,40 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     controller: _nameController,
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                       fontWeight: FontWeight.w500,
                     ),
                     decoration: InputDecoration(
                       labelText: 'Full Name',
                       labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                         fontWeight: FontWeight.w500,
                       ),
                       prefixIcon: Icon(
                         Icons.person_outline,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                       ),
                       filled: true,
                       fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF1A1A1A)
-                          : Colors.white,
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
+                        borderSide: BorderSide(color: AppColors.grey200),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade200,
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF6366F1),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
                           width: 2,
                         ),
                       ),
@@ -177,41 +178,41 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     controller: _emailController,
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                       fontWeight: FontWeight.w500,
                     ),
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       labelText: 'Email',
                       labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                         fontWeight: FontWeight.w500,
                       ),
                       prefixIcon: Icon(
                         Icons.email_outlined,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                       ),
                       filled: true,
                       fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF1A1A1A)
-                          : Colors.white,
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
+                        borderSide: BorderSide(color: AppColors.grey200),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade200,
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF6366F1),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
                           width: 2,
                         ),
                       ),
@@ -238,41 +239,41 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     controller: _phoneController,
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                       fontWeight: FontWeight.w500,
                     ),
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
                       labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                         fontWeight: FontWeight.w500,
                       ),
                       prefixIcon: Icon(
                         Icons.phone_outlined,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                       ),
                       filled: true,
                       fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF1A1A1A)
-                          : Colors.white,
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
+                        borderSide: BorderSide(color: AppColors.grey200),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade200,
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF6366F1),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
                           width: 2,
                         ),
                       ),
@@ -296,25 +297,25 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                     controller: _passwordController,
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                          ? AppColors.white
+                          : AppColors.darkSurface,
                       fontWeight: FontWeight.w500,
                     ),
                     obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
                       labelText: 'Password',
                       labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                         fontWeight: FontWeight.w500,
                       ),
                       prefixIcon: Icon(
                         Icons.lock_outline,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey600,
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey.shade600,
+                          color: AppColors.grey600,
                         ),
                         onPressed: () {
                           setState(() {
@@ -324,24 +325,24 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                       ),
                       filled: true,
                       fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF1A1A1A)
-                          : Colors.white,
+                          ? AppColors.darkSurface
+                          : AppColors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
+                        borderSide: BorderSide(color: AppColors.grey200),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade200,
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF6366F1),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
                           width: 2,
                         ),
                       ),
@@ -375,8 +376,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : const Color(0xFF1A1A1A),
+                                  ? AppColors.white
+                                  : AppColors.darkSurface,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -389,7 +390,7 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                             child: Icon(
                               Icons.info_outline,
                               size: 20,
-                              color: Colors.grey.shade600,
+                              color: AppColors.grey600,
                             ),
                           ),
                         ],
@@ -399,10 +400,10 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                            color: AppColors.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF6366F1).withOpacity(0.2),
+                              color: AppColors.primary.withOpacity(0.2),
                             ),
                           ),
                           child: Text(
@@ -411,8 +412,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.grey.shade300
-                                  : Colors.grey.shade700,
+                                  ? AppColors.grey200
+                                  : AppColors.grey700,
                             ),
                           ),
                         ),
@@ -453,8 +454,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -485,7 +486,7 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
     return Container(
       height: 4,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF6366F1) : Colors.grey.shade300,
+        color: isActive ? AppColors.primary : AppColors.grey200,
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -503,17 +504,17 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6366F1).withOpacity(0.1)
+              ? AppColors.primary.withOpacity(0.1)
               : Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1A1A1A)
-                  : Colors.white,
+                  ? AppColors.darkSurface
+                  : AppColors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6366F1)
+                ? AppColors.primary
                 : Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF2A2A2A)
-                    : Colors.grey.shade200,
+                    ? AppColors.darkElevated
+                    : AppColors.grey200,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -523,8 +524,8 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
               icon,
               size: 32,
               color: isSelected
-                  ? const Color(0xFF6366F1)
-                  : Colors.grey.shade600,
+                  ? AppColors.primary
+                  : AppColors.grey600,
             ),
             const SizedBox(height: 8),
             Text(
@@ -533,10 +534,10 @@ class _Step1BasicInfoState extends State<Step1BasicInfo> {
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: isSelected
-                    ? const Color(0xFF6366F1)
+                    ? AppColors.primary
                     : Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : const Color(0xFF1A1A1A),
+                        ? AppColors.white
+                        : AppColors.darkSurface,
               ),
             ),
           ],

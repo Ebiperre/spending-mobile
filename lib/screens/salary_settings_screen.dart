@@ -3,6 +3,9 @@ import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import 'package:spending_mobile/services/language_service.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/services/settings_service.dart';
+import 'package:spending_mobile/services/auth_service.dart';
+import 'package:spending_mobile/services/budget_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 import 'package:spending_mobile/utils/app_strings.dart';
 
@@ -14,9 +17,10 @@ class SalarySettingsScreen extends StatefulWidget {
 }
 
 class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
-  final _salaryController = TextEditingController(text: '3000');
+  final _salaryController = TextEditingController();
   String _selectedFrequency = 'monthly';
   bool _isLoading = false;
+  bool _isInitialLoading = true;
   String _currency = 'NGN';
   String _currencySymbol = '₦';
 
@@ -30,15 +34,30 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCurrency();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
-  Future<void> _loadCurrency() async {
+  Future<void> _loadData() async {
     final currency = await PreferencesService.getCurrency();
-    setState(() {
-      _currency = currency;
-      _currencySymbol = PreferencesService.getCurrencySymbol(currency);
-    });
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // Get current salary from financial profile
+    final financialProfile = authService.financialProfile;
+
+    if (mounted) {
+      setState(() {
+        _currency = currency;
+        _currencySymbol = PreferencesService.getCurrencySymbol(currency);
+        if (financialProfile != null) {
+          _salaryController.text = _formatNumber(financialProfile.monthlyIncome.toStringAsFixed(0));
+        } else {
+          _salaryController.text = '0';
+        }
+        _isInitialLoading = false;
+      });
+    }
   }
 
   @override
@@ -54,23 +73,55 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       _isLoading = true;
     });
 
-    // TODO: Implement actual salary save logic
-    await Future.delayed(const Duration(seconds: 1));
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final budgetService = Provider.of<BudgetService>(context, listen: false);
+
+    final amount = double.tryParse(_salaryController.text.replaceAll(',', '')) ?? 0.0;
+    final currentProfile = authService.financialProfile;
+
+    final success = await settingsService.saveFinancialProfile(
+      monthlyIncome: amount,
+      salaryDay: currentProfile?.salaryDay ?? 25,
+      rent: currentProfile?.rent ?? 0,
+      transport: currentProfile?.transport ?? 0,
+      bills: currentProfile?.bills ?? 0,
+      savingsTarget: currentProfile?.savingsTarget ?? 0,
+      otherFixed: currentProfile?.otherFixed ?? 0,
+    );
+
+    if (!mounted) return;
 
     setState(() {
       _isLoading = false;
     });
 
-    if (mounted) {
+    if (success) {
+      // Refresh user data and budgets
+      await authService.fetchCurrentUser();
+      budgetService.fetchDailyBudget();
+      budgetService.fetchMonthlyBudget();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Salary settings updated'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Salary settings updated'),
-          backgroundColor: AppColors.success,
+          content: Text(settingsService.error ?? 'Failed to update salary'),
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
-      Navigator.pop(context);
     }
   }
 

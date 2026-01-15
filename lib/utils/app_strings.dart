@@ -111,6 +111,13 @@ class AppStrings {
   String get noAccount => _isPidgin ? 'You no get account? ' : 'Don\'t have an account? ';
   String get signUp => _isPidgin ? 'Sign Up' : 'Sign Up';
 
+  // Sign Up Screen
+  String get createAccount => _isPidgin ? 'Create Account' : 'Create Account';
+  String get signUpToStart => _isPidgin ? 'Register make you start' : 'Sign up to get started';
+  String get confirmPassword => _isPidgin ? 'Confirm Password' : 'Confirm Password';
+  String get passwordsMatch => _isPidgin ? 'Password no match' : 'Passwords do not match';
+  String get haveAccount => _isPidgin ? 'You get account already? ' : 'Already have an account? ';
+
   // Splash Screen
   String get appName => 'SpendWise';
   String get tagline => _isPidgin ? 'Track your kudi, stay on budget' : 'Track your spending, stay on budget';

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
-import 'package:spending_mobile/services/language_service.dart';
-import 'package:spending_mobile/utils/app_strings.dart';
+import 'package:spending_mobile/models/transaction.dart';
+import 'package:spending_mobile/services/transaction_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
 class RecurringTransactionsScreen extends StatefulWidget {
@@ -13,63 +14,26 @@ class RecurringTransactionsScreen extends StatefulWidget {
 }
 
 class _RecurringTransactionsScreenState extends State<RecurringTransactionsScreen> {
-  // Mock recurring transactions
-  final List<Map<String, dynamic>> _recurringTransactions = [
-    {
-      'title': 'Netflix Subscription',
-      'amount': 4500.0,
-      'category': 'Lifestyle',
-      'icon': Icons.tv,
-      'frequency': 'Monthly',
-      'nextDate': DateTime.now().add(const Duration(days: 15)),
-      'isActive': true,
-    },
-    {
-      'title': 'Spotify Premium',
-      'amount': 1500.0,
-      'category': 'Lifestyle',
-      'icon': Icons.music_note,
-      'frequency': 'Monthly',
-      'nextDate': DateTime.now().add(const Duration(days: 8)),
-      'isActive': true,
-    },
-    {
-      'title': 'Gym Membership',
-      'amount': 15000.0,
-      'category': 'Lifestyle',
-      'icon': Icons.fitness_center,
-      'frequency': 'Monthly',
-      'nextDate': DateTime.now().add(const Duration(days: 22)),
-      'isActive': true,
-    },
-    {
-      'title': 'Electricity Bill',
-      'amount': 8000.0,
-      'category': 'Bills',
-      'icon': Icons.bolt,
-      'frequency': 'Monthly',
-      'nextDate': DateTime.now().add(const Duration(days: 5)),
-      'isActive': true,
-    },
-    {
-      'title': 'Internet (Starlink)',
-      'amount': 38000.0,
-      'category': 'Bills',
-      'icon': Icons.wifi,
-      'frequency': 'Monthly',
-      'nextDate': DateTime.now().add(const Duration(days: 12)),
-      'isActive': false,
-    },
-    {
-      'title': 'Weekly Groceries',
-      'amount': 15000.0,
-      'category': 'Food',
-      'icon': Icons.shopping_cart,
-      'frequency': 'Weekly',
-      'nextDate': DateTime.now().add(const Duration(days: 3)),
-      'isActive': true,
-    },
-  ];
+  bool _isInitialLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    final transactionService = Provider.of<TransactionService>(context, listen: false);
+    await transactionService.fetchRecurringTransactions();
+
+    if (mounted) {
+      setState(() {
+        _isInitialLoading = false;
+      });
+    }
+  }
 
   String _formatDate(DateTime date) {
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -80,20 +44,85 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
     return date.difference(DateTime.now()).inDays;
   }
 
-  double get _totalMonthly {
-    return _recurringTransactions
-        .where((t) => t['isActive'] == true)
+  double _getTotalMonthly(List<RecurringTransaction> transactions) {
+    return transactions
+        .where((t) => t.isActive)
         .fold(0.0, (sum, t) {
-          final amount = t['amount'] as double;
-          final frequency = t['frequency'] as String;
-          if (frequency == 'Weekly') return sum + (amount * 4);
+          final amount = t.amount;
+          final frequency = t.frequency;
+          if (frequency == 'weekly') return sum + (amount * 4);
+          if (frequency == 'biweekly') return sum + (amount * 2);
           return sum + amount;
         });
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant;
+      case 'transport':
+        return Icons.directions_car;
+      case 'bills':
+        return Icons.receipt_long;
+      case 'entertainment':
+        return Icons.movie;
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'health':
+        return Icons.medical_services;
+      case 'education':
+        return Icons.school;
+      case 'lifestyle':
+        return Icons.favorite;
+      default:
+        return Icons.attach_money;
+    }
+  }
+
+  String _getCategoryLabel(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return 'Food';
+      case 'transport':
+        return 'Transport';
+      case 'bills':
+        return 'Bills';
+      case 'entertainment':
+        return 'Entertainment';
+      case 'shopping':
+        return 'Shopping';
+      case 'health':
+        return 'Health';
+      case 'education':
+        return 'Education';
+      case 'lifestyle':
+        return 'Lifestyle';
+      default:
+        return 'Other';
+    }
+  }
+
+  String _getFrequencyLabel(String frequency) {
+    switch (frequency.toLowerCase()) {
+      case 'daily':
+        return 'Daily';
+      case 'weekly':
+        return 'Weekly';
+      case 'biweekly':
+        return 'Bi-weekly';
+      case 'monthly':
+        return 'Monthly';
+      default:
+        return frequency;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final transactionService = Provider.of<TransactionService>(context);
+    final recurringTransactions = transactionService.recurringTransactions;
+    final totalMonthly = _getTotalMonthly(recurringTransactions);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
@@ -124,144 +153,181 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Summary Card
-            FadeInDown(
-              duration: const Duration(milliseconds: 300),
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkElevated : AppColors.grey200,
+      body: SafeArea(
+        top: false,
+        child: _isInitialLoading
+            ? Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDark ? AppColors.white : AppColors.black,
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Monthly Recurring',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '₦${_formatNumber(_totalMonthly)}',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? AppColors.darkText : AppColors.lightText,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
+              )
+            : RefreshIndicator(
+                onRefresh: _loadData,
+                color: isDark ? AppColors.white : AppColors.black,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Summary Card
+                      FadeInDown(
+                        duration: const Duration(milliseconds: 300),
+                        child: Container(
+                          margin: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark ? AppColors.darkElevated : AppColors.grey200,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.repeat,
-                            color: AppColors.primary,
-                            size: 28,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Monthly',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${recurringTransactions.where((t) => t.isActive).length} active',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '₦${_formatNumber(totalMonthly)}',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.white : AppColors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _buildSummaryChip(
+                                    '${recurringTransactions.where((t) => t.frequency == 'monthly').length} Monthly',
+                                    AppColors.primary,
+                                    isDark,
+                                  ),
+                                  _buildSummaryChip(
+                                    '${recurringTransactions.where((t) => t.frequency == 'weekly').length} Weekly',
+                                    AppColors.accent,
+                                    isDark,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _buildSummaryChip(
-                          '${_recurringTransactions.where((t) => t['isActive'] == true).length} Active',
-                          AppColors.success,
-                          isDark,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildSummaryChip(
-                          '${_recurringTransactions.where((t) => t['isActive'] == false).length} Paused',
-                          AppColors.warning,
-                          isDark,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                      ),
 
-            // Upcoming Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FadeInDown(
-                delay: const Duration(milliseconds: 100),
-                duration: const Duration(milliseconds: 300),
-                child: Text(
-                  'Upcoming',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                      // Upcoming Section
+                      if (recurringTransactions.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Upcoming',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? AppColors.white : AppColors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...recurringTransactions
+                            .where((t) => t.isActive && t.nextOccurrence != null)
+                            .take(3)
+                            .map((t) => FadeInUp(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: _buildUpcomingCard(t, isDark),
+                                )),
+                      ],
+
+                      const SizedBox(height: 24),
+
+                      // All Recurring Section
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'All Recurring',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.white : AppColors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (recurringTransactions.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.repeat,
+                                  size: 64,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No recurring transactions',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Add your first recurring expense',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...recurringTransactions.asMap().entries.map((entry) => FadeInUp(
+                              delay: Duration(milliseconds: 50 * entry.key),
+                              duration: const Duration(milliseconds: 300),
+                              child: _buildRecurringItem(entry.value, isDark),
+                            )),
+
+                      const SizedBox(height: 100),
+                    ],
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-
-            // Upcoming transactions (within 7 days)
-            ..._recurringTransactions
-                .where((t) => t['isActive'] == true && _getDaysUntil(t['nextDate']) <= 7)
-                .toList()
-                .asMap()
-                .entries
-                .map((entry) => FadeInUp(
-                      delay: Duration(milliseconds: 150 + (entry.key * 50)),
-                      duration: const Duration(milliseconds: 300),
-                      child: _buildUpcomingCard(entry.value, isDark),
-                    )),
-
-            const SizedBox(height: 24),
-
-            // All Recurring Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FadeInDown(
-                delay: const Duration(milliseconds: 300),
-                duration: const Duration(milliseconds: 300),
-                child: Text(
-                  'All Recurring',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AppColors.darkText : AppColors.lightText,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // All transactions list
-            ..._recurringTransactions.asMap().entries.map((entry) => FadeInUp(
-                  delay: Duration(milliseconds: 350 + (entry.key * 50)),
-                  duration: const Duration(milliseconds: 300),
-                  child: _buildRecurringItem(entry.value, isDark),
-                )),
-
-            const SizedBox(height: 100),
-          ],
-        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddRecurringDialog(context),
@@ -270,6 +336,13 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
         icon: const Icon(Icons.add),
         label: const Text('Add Recurring'),
       ),
+    );
+  }
+
+  String _formatNumber(double number) {
+    return number.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
     );
   }
 
@@ -283,7 +356,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: color,
         ),
@@ -291,83 +364,115 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
     );
   }
 
-  Widget _buildUpcomingCard(Map<String, dynamic> transaction, bool isDark) {
-    final daysUntil = _getDaysUntil(transaction['nextDate'] as DateTime);
+  Widget _buildUpcomingCard(RecurringTransaction transaction, bool isDark) {
+    final daysUntil = transaction.nextOccurrence != null
+        ? _getDaysUntil(transaction.nextOccurrence!)
+        : 0;
+    final isUrgent = daysUntil <= 3;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: daysUntil <= 3
-            ? AppColors.warning.withOpacity(0.1)
-            : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: daysUntil <= 3
-              ? AppColors.warning.withOpacity(0.3)
+          color: isUrgent
+              ? AppColors.warning.withOpacity(0.5)
               : (isDark ? AppColors.darkElevated : AppColors.grey200),
+          width: isUrgent ? 2 : 1,
         ),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: daysUntil <= 3
-                  ? AppColors.warning.withOpacity(0.2)
-                  : AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: isUrgent
+                  ? AppColors.warning.withOpacity(0.1)
+                  : (isDark ? AppColors.darkElevated : AppColors.grey100),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              transaction['icon'] as IconData,
-              color: daysUntil <= 3 ? AppColors.warning : AppColors.primary,
-              size: 24,
+              _getCategoryIcon(transaction.category),
+              color: isUrgent
+                  ? AppColors.warning
+                  : (isDark ? AppColors.darkText : AppColors.lightText),
+              size: 20,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction['title'] as String,
+                  transaction.description ?? _getCategoryLabel(transaction.category),
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: isDark ? AppColors.darkText : AppColors.lightText,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  daysUntil == 0
-                      ? 'Due today!'
-                      : daysUntil == 1
-                          ? 'Due tomorrow'
-                          : 'Due in $daysUntil days',
+                  transaction.nextOccurrence != null
+                      ? 'Due ${_formatDate(transaction.nextOccurrence!)}'
+                      : _getFrequencyLabel(transaction.frequency),
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: daysUntil <= 3 ? FontWeight.w600 : FontWeight.w400,
-                    color: daysUntil <= 3 ? AppColors.warning : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                    color: isUrgent
+                        ? AppColors.warning
+                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            '₦${_formatNumber(transaction['amount'] as double)}',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.darkText : AppColors.lightText,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '₦${_formatNumber(transaction.amount)}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.darkText : AppColors.lightText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isUrgent
+                      ? AppColors.warning.withOpacity(0.1)
+                      : (isDark ? AppColors.darkElevated : AppColors.grey100),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  daysUntil == 0
+                      ? 'Today'
+                      : daysUntil == 1
+                          ? 'Tomorrow'
+                          : '$daysUntil days',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isUrgent
+                        ? AppColors.warning
+                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecurringItem(Map<String, dynamic> transaction, bool isDark) {
-    final isActive = transaction['isActive'] as bool;
+  Widget _buildRecurringItem(RecurringTransaction transaction, bool isDark) {
+    final isActive = transaction.isActive;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -379,7 +484,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
         ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -389,7 +494,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
-            transaction['icon'] as IconData,
+            _getCategoryIcon(transaction.category),
             color: isActive
                 ? AppColors.primary
                 : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
@@ -397,7 +502,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
           ),
         ),
         title: Text(
-          transaction['title'] as String,
+          transaction.description ?? _getCategoryLabel(transaction.category),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -406,29 +511,13 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                 : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
           ),
         ),
-        subtitle: Row(
-          children: [
-            Text(
-              transaction['frequency'] as String,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-            Text(
-              ' • ',
-              style: TextStyle(
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-            Text(
-              'Next: ${_formatDate(transaction['nextDate'] as DateTime)}',
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-          ],
+        subtitle: Text(
+          '${_getFrequencyLabel(transaction.frequency)}${transaction.nextOccurrence != null ? ' • Next: ${_formatDate(transaction.nextOccurrence!)}' : ''}',
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: SizedBox(
           width: 120,
@@ -438,7 +527,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
             children: [
               Flexible(
                 child: Text(
-                  '₦${_formatNumber(transaction['amount'] as double)}',
+                  '₦${_formatNumber(transaction.amount)}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -453,10 +542,9 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                 scale: 0.8,
                 child: Switch(
                   value: isActive,
-                  onChanged: (value) {
-                    setState(() {
-                      transaction['isActive'] = value;
-                    });
+                  onChanged: (value) async {
+                    final transactionService = Provider.of<TransactionService>(context, listen: false);
+                    await transactionService.toggleRecurring(transaction.id);
                   },
                   activeColor: isDark ? AppColors.white : AppColors.black,
                   activeTrackColor: isDark ? AppColors.white.withOpacity(0.3) : AppColors.black.withOpacity(0.3),
@@ -465,23 +553,87 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
             ],
           ),
         ),
+        onLongPress: () => _showDeleteDialog(transaction),
       ),
     );
   }
 
-  String _formatNumber(double number) {
-    return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+  void _showDeleteDialog(RecurringTransaction transaction) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Recurring',
+          style: TextStyle(
+            color: isDark ? AppColors.darkText : AppColors.lightText,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${transaction.description ?? _getCategoryLabel(transaction.category)}"?',
+          style: TextStyle(
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final transactionService = Provider.of<TransactionService>(context, listen: false);
+              final success = await transactionService.deleteRecurring(transaction.id);
+
+              if (mounted && success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Recurring transaction deleted'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 
   void _showAddRecurringDialog(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     final amountController = TextEditingController();
-    String selectedFrequency = 'Monthly';
-    String selectedCategory = 'Bills';
+    final descriptionController = TextEditingController();
+    String selectedCategory = 'bills';
+    String selectedFrequency = 'monthly';
+    int selectedDayOfMonth = DateTime.now().day;
+
+    final categories = [
+      {'value': 'food', 'label': 'Food', 'icon': Icons.restaurant},
+      {'value': 'transport', 'label': 'Transport', 'icon': Icons.directions_car},
+      {'value': 'bills', 'label': 'Bills', 'icon': Icons.receipt_long},
+      {'value': 'entertainment', 'label': 'Entertainment', 'icon': Icons.movie},
+      {'value': 'shopping', 'label': 'Shopping', 'icon': Icons.shopping_bag},
+      {'value': 'lifestyle', 'label': 'Lifestyle', 'icon': Icons.favorite},
+      {'value': 'other', 'label': 'Other', 'icon': Icons.attach_money},
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -502,114 +654,242 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
               topRight: Radius.circular(24),
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkElevated : AppColors.grey200,
-                    borderRadius: BorderRadius.circular(2),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkElevated : AppColors.grey200,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Add Recurring Transaction',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkText : AppColors.lightText,
-                ),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Add Recurring Transaction',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkText : AppColors.lightText,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '₦ ',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 24),
+
+                  // Amount
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkText : AppColors.lightText,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: '₦ ',
+                      prefixIcon: const Icon(Icons.attach_money),
+                      filled: true,
+                      fillColor: isDark ? AppColors.darkElevated : AppColors.grey100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkElevated : AppColors.grey200,
+                        ),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter an amount';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Frequency',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: ['Daily', 'Weekly', 'Monthly', 'Yearly'].map((freq) => ChoiceChip(
-                  label: Text(freq),
-                  selected: selectedFrequency == freq,
-                  onSelected: (selected) {
-                    setModalState(() {
-                      selectedFrequency = freq;
-                    });
-                  },
-                  selectedColor: isDark ? AppColors.white : AppColors.black,
-                  labelStyle: TextStyle(
-                    color: selectedFrequency == freq
-                        ? (isDark ? AppColors.black : AppColors.white)
-                        : (isDark ? AppColors.darkText : AppColors.lightText),
+                  const SizedBox(height: 16),
+
+                  // Description
+                  TextFormField(
+                    controller: descriptionController,
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkText : AppColors.lightText,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Description (optional)',
+                      prefixIcon: const Icon(Icons.description),
+                      filled: true,
+                      fillColor: isDark ? AppColors.darkElevated : AppColors.grey100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkElevated : AppColors.grey200,
+                        ),
+                      ),
+                    ),
                   ),
-                )).toList(),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (titleController.text.isNotEmpty && amountController.text.isNotEmpty) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Recurring transaction added!'),
-                          backgroundColor: AppColors.success,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(height: 16),
+
+                  // Category
+                  Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: categories.map((cat) {
+                      final isSelected = selectedCategory == cat['value'];
+                      return GestureDetector(
+                        onTap: () => setModalState(() => selectedCategory = cat['value'] as String),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary.withOpacity(0.1)
+                                : (isDark ? AppColors.darkElevated : AppColors.grey100),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primary : Colors.transparent,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                cat['icon'] as IconData,
+                                size: 16,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cat['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : (isDark ? AppColors.darkText : AppColors.lightText),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppColors.white : AppColors.black,
-                    foregroundColor: isDark ? AppColors.black : AppColors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    }).toList(),
                   ),
-                  child: const Text(
-                    'Add Recurring',
+                  const SizedBox(height: 16),
+
+                  // Frequency
+                  Text(
+                    'Frequency',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: ['weekly', 'biweekly', 'monthly'].map((freq) {
+                      final isSelected = selectedFrequency == freq;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => setModalState(() => selectedFrequency = freq),
+                          child: Container(
+                            margin: EdgeInsets.only(right: freq != 'monthly' ? 8 : 0),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : (isDark ? AppColors.darkElevated : AppColors.grey100),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : Colors.transparent,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                _getFrequencyLabel(freq),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : (isDark ? AppColors.darkText : AppColors.lightText),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (formKey.currentState!.validate()) {
+                          Navigator.pop(context);
+
+                          final transactionService = Provider.of<TransactionService>(context, listen: false);
+                          final result = await transactionService.createRecurring(
+                            amount: double.parse(amountController.text),
+                            category: selectedCategory,
+                            description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
+                            frequency: selectedFrequency,
+                            dayOfMonth: selectedFrequency == 'monthly' ? selectedDayOfMonth : null,
+                          );
+
+                          if (mounted) {
+                            if (result != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Recurring transaction added!'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(transactionService.error ?? 'Failed to add recurring transaction'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? AppColors.white : AppColors.black,
+                        foregroundColor: isDark ? AppColors.black : AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'Add Recurring',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

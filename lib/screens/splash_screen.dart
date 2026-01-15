@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
 import 'package:spending_mobile/screens/login_screen.dart';
+import 'package:spending_mobile/screens/dashboard_screen.dart';
+import 'package:spending_mobile/services/auth_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,12 +17,30 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _checkAuthAndNavigate();
   }
 
-  Future<void> _navigateToLogin() async {
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
+  Future<void> _checkAuthAndNavigate() async {
+    // Allow splash animation to play
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    // Initialize auth service and check if user is logged in
+    final isLoggedIn = await authService.init();
+
+    if (!mounted) return;
+
+    if (isLoggedIn) {
+      // User is authenticated, go to dashboard
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      );
+    } else {
+      // User is not authenticated, go to login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
