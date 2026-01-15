@@ -8,18 +8,30 @@ import 'package:spending_mobile/screens/quick_add_screen.dart';
 import 'package:spending_mobile/screens/add_transaction_screen.dart';
 import 'package:spending_mobile/screens/wallet_screen.dart';
 import 'package:spending_mobile/screens/currency_settings_screen.dart';
+import 'package:spending_mobile/screens/transactions_list_screen.dart';
+import 'package:spending_mobile/screens/notifications_settings_screen.dart';
+import 'package:spending_mobile/screens/recurring_transactions_screen.dart';
+import 'package:spending_mobile/screens/spending_reports_screen.dart';
+import 'package:spending_mobile/screens/forgot_password_screen.dart';
+import 'package:spending_mobile/screens/edit_profile_screen.dart';
+import 'package:spending_mobile/screens/salary_settings_screen.dart';
+import 'package:spending_mobile/screens/payday_settings_screen.dart';
 import 'package:spending_mobile/screens/onboarding/step1_basic_info.dart';
 import 'package:spending_mobile/screens/onboarding/step2_financial_setup.dart';
 import 'package:spending_mobile/screens/onboarding/step3_calculation.dart';
 import 'package:spending_mobile/screens/onboarding/step4_language.dart';
 import 'package:spending_mobile/screens/onboarding/step5_welcome.dart';
 import 'package:spending_mobile/providers/theme_provider.dart';
+import 'package:spending_mobile/services/language_service.dart';
 import 'package:spending_mobile/utils/app_theme.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageService()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -48,6 +60,14 @@ class MyApp extends StatelessWidget {
         '/add-transaction': (context) => const AddTransactionScreen(),
         '/wallet': (context) => const WalletScreen(),
         '/currency-settings': (context) => const CurrencySettingsScreen(),
+        '/transactions': (context) => const TransactionsListScreen(),
+        '/notifications-settings': (context) => const NotificationsSettingsScreen(),
+        '/recurring-transactions': (context) => const RecurringTransactionsScreen(),
+        '/spending-reports': (context) => const SpendingReportsScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/edit-profile': (context) => const EditProfileScreen(),
+        '/salary-settings': (context) => const SalarySettingsScreen(),
+        '/payday-settings': (context) => const PaydaySettingsScreen(),
         '/onboarding/step1': (context) => const Step1BasicInfo(),
         '/onboarding/step2': (context) => const Step2FinancialSetup(),
         '/onboarding/step3': (context) {

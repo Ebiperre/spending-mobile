@@ -3,7 +3,10 @@ import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import 'package:spending_mobile/screens/currency_settings_screen.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/services/language_service.dart';
 import 'package:spending_mobile/providers/theme_provider.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
+import 'package:spending_mobile/utils/app_strings.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,8 +33,217 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  void _showLanguageDialog(BuildContext context, LanguageService langService) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkElevated : AppColors.grey200,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Select Language',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.darkText : AppColors.lightText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose your preferred language',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildLanguageOption(
+              context: context,
+              title: 'English',
+              subtitle: 'Standard English',
+              isSelected: langService.currentLanguage == AppLanguage.english,
+              onTap: () {
+                langService.setLanguage(AppLanguage.english);
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildLanguageOption(
+              context: context,
+              title: 'Pidgin',
+              subtitle: 'Nigerian Pidgin English',
+              isSelected: langService.currentLanguage == AppLanguage.pidgin,
+              onTap: () {
+                langService.setLanguage(AppLanguage.pidgin);
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppColors.white.withOpacity(0.1) : AppColors.black.withOpacity(0.05))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? (isDark ? AppColors.white : AppColors.black)
+                : (isDark ? AppColors.darkElevated : AppColors.grey200),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkText : AppColors.lightText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: isDark ? AppColors.white : AppColors.black,
+                size: 24,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langService = Provider.of<LanguageService>(context, listen: false);
+    final strings = AppStrings(langService.currentLanguage);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.logout, color: AppColors.error, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              strings.logout,
+              style: TextStyle(
+                color: isDark ? AppColors.darkText : AppColors.lightText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          strings.logoutMessage,
+          style: TextStyle(
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              strings.cancel,
+              style: TextStyle(
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to login and clear all routes
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(strings.logout),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -42,39 +254,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Profile Header
             FadeInDown(
               duration: const Duration(milliseconds: 400),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: const Color(0xFF6366F1).withOpacity(0.1),
-                    child: const Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Color(0xFF6366F1),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, '/edit-profile');
+                },
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: isDark
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
+                          child: Icon(
+                            Icons.person,
+                            size: 60,
+                            color: isDark
+                                ? AppColors.darkText
+                                : AppColors.lightText,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.white : AppColors.black,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.edit,
+                              size: 14,
+                              color: isDark ? AppColors.black : AppColors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'John Doe',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
+                    const SizedBox(height: 16),
+                    Text(
+                      'John Doe',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        color: isDark
+                            ? AppColors.darkText
+                            : AppColors.lightText,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'john.doe@example.com',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                    const SizedBox(height: 4),
+                    Text(
+                      'john.doe@example.com',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to edit profile',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppColors.darkTextSecondary.withOpacity(0.7)
+                            : AppColors.lightTextSecondary.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -92,7 +346,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.local_fire_department,
                       label: 'Streak',
                       value: '12 days',
-                      color: const Color(0xFFF97316),
+                      color: AppColors.accent,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -102,7 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.star,
                       label: 'Level',
                       value: 'Beginner',
-                      color: const Color(0xFFF59E0B),
+                      color: AppColors.warning,
                     ),
                   ),
                 ],
@@ -118,6 +372,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Salary Settings',
               subtitle: '\$3,000/month',
               delay: 150,
+              onTap: () {
+                Navigator.pushNamed(context, '/salary-settings');
+              },
             ),
             _buildMenuItem(
               context: context,
@@ -141,6 +398,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Payday',
               subtitle: '25th of every month',
               delay: 250,
+              onTap: () {
+                Navigator.pushNamed(context, '/payday-settings');
+              },
+            ),
+            _buildMenuItem(
+              context: context,
+              icon: Icons.repeat,
+              title: 'Recurring Transactions',
+              subtitle: 'Manage recurring expenses',
+              delay: 275,
+              onTap: () {
+                Navigator.pushNamed(context, '/recurring-transactions');
+              },
             ),
             _buildMenuItem(
               context: context,
@@ -148,6 +418,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Notifications',
               subtitle: 'Daily check-in reminders',
               delay: 300,
+              onTap: () {
+                Navigator.pushNamed(context, '/notifications-settings');
+              },
+            ),
+            _buildMenuItem(
+              context: context,
+              icon: Icons.bar_chart,
+              title: 'Spending Reports',
+              subtitle: 'Weekly & monthly insights',
+              delay: 325,
+              onTap: () {
+                Navigator.pushNamed(context, '/spending-reports');
+              },
             ),
             // Dark Mode Toggle
             FadeInUp(
@@ -155,36 +438,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
               duration: const Duration(milliseconds: 400),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF1A1A1A)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isDark
+                      ? AppColors.darkSurface
+                      : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF2A2A2A)
-                        : Colors.grey.shade200,
+                    color: isDark
+                        ? AppColors.darkElevated
+                        : AppColors.grey200,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        color: isDark
+                            ? AppColors.darkElevated
+                            : AppColors.grey100,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.dark_mode,
-                        color: Color(0xFF6366F1),
+                        color: isDark
+                            ? AppColors.darkText
+                            : AppColors.lightText,
                         size: 20,
                       ),
                     ),
@@ -198,16 +478,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : const Color(0xFF1A1A1A),
+                              color: isDark
+                                  ? AppColors.darkText
+                                  : AppColors.lightText,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Switch to dark theme',
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.lightTextSecondary,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -222,7 +504,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onChanged: (value) {
                             themeProvider.toggleTheme();
                           },
-                          activeColor: const Color(0xFF6366F1),
+                          activeColor: isDark
+                              ? AppColors.white
+                              : AppColors.black,
                         );
                       },
                     ),
@@ -231,12 +515,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            _buildMenuItem(
-              context: context,
-              icon: Icons.language,
-              title: 'Language',
-              subtitle: 'Nigerian Pidgin',
-              delay: 400,
+            // Language Selection
+            FadeInUp(
+              delay: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 400),
+              child: Consumer<LanguageService>(
+                builder: (context, langService, child) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkSurface
+                          : AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.darkElevated
+                            : AppColors.grey200,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkElevated
+                              : AppColors.grey100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.language,
+                          color: isDark
+                              ? AppColors.darkText
+                              : AppColors.lightText,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        'Language',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: isDark
+                              ? AppColors.darkText
+                              : AppColors.lightText,
+                        ),
+                      ),
+                      subtitle: Text(
+                        langService.languageName,
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                        size: 20,
+                      ),
+                      onTap: () => _showLanguageDialog(context, langService),
+                    ),
+                  );
+                },
+              ),
             ),
             _buildMenuItem(
               context: context,
@@ -269,15 +616,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {
-                    // TODO: Implement logout
-                  },
+                  onPressed: () => _showLogoutDialog(context),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
-                    side: const BorderSide(color: Color(0xFFEF4444), width: 2),
+                    foregroundColor: isDark
+                        ? AppColors.white
+                        : AppColors.black,
+                    side: BorderSide(
+                      color: isDark
+                          ? AppColors.darkElevated
+                          : AppColors.grey200,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Row(
@@ -312,35 +663,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String value,
     required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1A1A1A)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF2A2A2A)
-              : Colors.grey.shade200,
+          color: isDark
+              ? AppColors.darkElevated
+              : AppColors.grey200,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: isDark
+                  ? AppColors.darkElevated
+                  : AppColors.grey100,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(
+              icon,
+              color: isDark
+                  ? AppColors.darkText
+                  : AppColors.lightText,
+              size: 24,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -348,9 +702,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : const Color(0xFF1A1A1A),
+              color: isDark
+                  ? AppColors.darkText
+                  : AppColors.lightText,
             ),
           ),
           const SizedBox(height: 4),
@@ -359,7 +713,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.lightTextSecondary,
             ),
           ),
         ],
@@ -375,40 +731,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required int delay,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return FadeInUp(
       delay: Duration(milliseconds: delay),
       duration: const Duration(milliseconds: 400),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1A1A1A)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isDark
+              ? AppColors.darkSurface
+              : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF2A2A2A)
-                : Colors.grey.shade200,
+            color: isDark
+                ? AppColors.darkElevated
+                : AppColors.grey200,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.all(20),
+          contentPadding: const EdgeInsets.all(16),
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: isDark
+                  ? AppColors.darkElevated
+                  : AppColors.grey100,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: const Color(0xFF6366F1),
+              color: isDark
+                  ? AppColors.darkText
+                  : AppColors.lightText,
               size: 20,
             ),
           ),
@@ -417,22 +772,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 16,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : const Color(0xFF1A1A1A),
+              color: isDark
+                  ? AppColors.darkText
+                  : AppColors.lightText,
             ),
           ),
           subtitle: Text(
             subtitle,
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.lightTextSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
           trailing: Icon(
             Icons.chevron_right,
-            color: Colors.grey.shade400,
+            color: isDark
+                ? AppColors.darkTextSecondary
+                : AppColors.lightTextSecondary,
             size: 20,
           ),
           onTap: onTap ?? () {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
 import 'package:spending_mobile/screens/analytics_screen.dart';
 import 'package:spending_mobile/screens/wallet_screen.dart';
 import 'package:spending_mobile/screens/profile_screen.dart';
@@ -8,6 +9,9 @@ import 'package:spending_mobile/screens/quick_add_screen.dart';
 import 'package:spending_mobile/screens/morning_briefing_screen.dart';
 import 'package:spending_mobile/screens/the_gist_screen.dart';
 import 'package:spending_mobile/services/preferences_service.dart';
+import 'package:spending_mobile/services/language_service.dart';
+import 'package:spending_mobile/utils/app_theme.dart';
+import 'package:spending_mobile/utils/app_strings.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -97,7 +101,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             _buildFabMenuItem(
               icon: Icons.flash_on,
               label: 'Quick Add',
-              color: const Color(0xFFF97316),
+              color: AppColors.accent,
               delay: 0,
               onTap: () {
                 _toggleFabMenu();
@@ -113,7 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             _buildFabMenuItem(
               icon: Icons.edit,
               label: 'Manual Input',
-              color: const Color(0xFF6366F1),
+              color: AppColors.primary,
               delay: 50,
               onTap: () {
                 _toggleFabMenu();
@@ -132,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             duration: const Duration(milliseconds: 600),
             child: FloatingActionButton(
               onPressed: _toggleFabMenu,
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: AppColors.primary,
               child: AnimatedBuilder(
                 animation: _fabAnimation,
                 builder: (context, child) {
@@ -153,15 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         delay: const Duration(milliseconds: 900),
         duration: const Duration(milliseconds: 600),
         child: Container(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                spreadRadius: 1,
-                blurRadius: 10,
-              ),
-            ],
-          ),
+          decoration: const BoxDecoration(),
           child: BottomNavigationBar(
             currentIndex: _selectedIndex,
             onTap: (index) {
@@ -169,8 +165,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 _selectedIndex = index;
               });
             },
-            selectedItemColor: Colors.deepPurple,
-            unselectedItemColor: Colors.grey,
+            selectedItemColor: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.white
+                : AppColors.black,
+            unselectedItemColor: AppColors.grey600,
             type: BottomNavigationBarType.fixed,
             items: const [
               BottomNavigationBarItem(
@@ -232,8 +230,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey.shade900
-                        : Colors.white,
+                        ? AppColors.darkSurface
+                        : AppColors.lightSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -301,37 +299,47 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     final streakDays = 5;
     final badgesEarned = 3;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langService = Provider.of<LanguageService>(context);
+    final strings = AppStrings(langService.currentLanguage);
+
     // Temperature status based on spending
     String temperatureEmoji;
+    String temperatureStatus;
     String temperatureMessage;
     Color temperatureColor;
 
     if (spendingPercentage <= 30) {
       temperatureEmoji = '🟢';
-      temperatureMessage = 'COOL - You dey manage am well!';
-      temperatureColor = Colors.green;
+      temperatureStatus = strings.tempCool;
+      temperatureMessage = strings.tempCoolMsg;
+      temperatureColor = AppColors.success;
     } else if (spendingPercentage <= 60) {
       temperatureEmoji = '🟡';
-      temperatureMessage = 'WARM - E dey hot small o';
-      temperatureColor = Colors.orange;
+      temperatureStatus = strings.tempWarm;
+      temperatureMessage = strings.tempWarmMsg;
+      temperatureColor = AppColors.warning;
     } else if (spendingPercentage <= 85) {
       temperatureEmoji = '🟠';
-      temperatureMessage = 'HOT - Your pocket dey suffer!';
-      temperatureColor = Colors.deepOrange;
+      temperatureStatus = strings.tempHot;
+      temperatureMessage = strings.tempHotMsg;
+      temperatureColor = AppColors.error;
     } else if (spendingPercentage <= 100) {
       temperatureEmoji = '🔴';
-      temperatureMessage = 'BOILING - Omo! Money don dey finish!';
-      temperatureColor = Colors.red;
+      temperatureStatus = strings.tempBoiling;
+      temperatureMessage = strings.tempBoilingMsg;
+      temperatureColor = AppColors.hot;
     } else {
       temperatureEmoji = '🔥';
-      temperatureMessage = 'OVERHEATING - You don break budget!';
-      temperatureColor = Colors.red.shade900;
+      temperatureStatus = strings.tempOverheat;
+      temperatureMessage = strings.tempOverheatMsg;
+      temperatureColor = AppColors.hot;
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,9 +348,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             Container(
               padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF1A1A1A)
-                    : Colors.white,
+                color: isDark
+                    ? AppColors.darkSurface
+                    : AppColors.lightSurface,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,22 +364,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hello, John',
+                              strings.greeting('John'),
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w700,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : const Color(0xFF1A1A1A),
+                                color: isDark
+                                    ? AppColors.darkText
+                                    : AppColors.lightText,
                                 letterSpacing: -0.5,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Here\'s your spending overview',
+                              strings.spendingOverview,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey.shade600,
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.lightTextSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -380,16 +390,16 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFF2A2A2A)
-                                : Colors.grey.shade100,
+                            color: isDark
+                                ? AppColors.darkElevated
+                                : AppColors.lightBackground,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
                             Icons.notifications_outlined,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : const Color(0xFF1A1A1A),
+                            color: isDark
+                                ? AppColors.darkText
+                                : AppColors.lightText,
                             size: 22,
                           ),
                         ),
@@ -405,10 +415,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                            color: AppColors.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF6366F1).withOpacity(0.2),
+                              color: AppColors.primary.withOpacity(0.2),
                               width: 1,
                             ),
                           ),
@@ -418,11 +428,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               const Text('🔥', style: TextStyle(fontSize: 14)),
                               const SizedBox(width: 6),
                               Text(
-                                '$streakDays day streak',
+                                strings.dayStreak(streakDays),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF6366F1),
+                                  color: AppColors.primary,
                                 ),
                               ),
                             ],
@@ -432,10 +442,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withOpacity(0.1),
+                            color: AppColors.accent.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFFF59E0B).withOpacity(0.2),
+                              color: AppColors.accent.withOpacity(0.2),
                               width: 1,
                             ),
                           ),
@@ -445,11 +455,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               const Text('⭐', style: TextStyle(fontSize: 14)),
                               const SizedBox(width: 6),
                               Text(
-                                '$badgesEarned badges',
+                                strings.badges(badgesEarned),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFFF59E0B),
+                                  color: AppColors.accent,
                                 ),
                               ),
                             ],
@@ -475,23 +485,15 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     child: Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF1A1A1A)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
+                        color: isDark
+                            ? AppColors.darkSurface
+                            : AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade200,
-                          width: 1,
+                          color: isDark
+                              ? AppColors.darkElevated
+                              : AppColors.grey200,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,10 +505,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Today\'s Budget',
+                                    strings.todaysBudget,
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.grey.shade600,
+                                      color: isDark
+                                          ? AppColors.darkTextSecondary
+                                          : AppColors.lightTextSecondary,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -516,9 +520,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                     style: TextStyle(
                                       fontSize: 36,
                                       fontWeight: FontWeight.w700,
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.white
-                                          : const Color(0xFF1A1A1A),
+                                      color: isDark
+                                          ? AppColors.darkText
+                                          : AppColors.lightText,
                                       letterSpacing: -1,
                                       height: 1,
                                     ),
@@ -543,7 +547,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      temperatureMessage.split(' - ')[0],
+                                      temperatureStatus,
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
@@ -567,9 +571,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 return LinearProgressIndicator(
                                   value: value,
                                   minHeight: 8,
-                                  backgroundColor: Theme.of(context).brightness == Brightness.dark
-                                      ? const Color(0xFF2A2A2A)
-                                      : Colors.grey.shade200,
+                                  backgroundColor: isDark
+                                      ? AppColors.darkElevated
+                                      : AppColors.lightTextSecondary.withOpacity(0.2),
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     _getTemperatureColor(spendingPercentage),
                                   ),
@@ -585,10 +589,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Spent',
+                                    strings.spent,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      color: isDark
+                                          ? AppColors.darkTextSecondary
+                                          : AppColors.lightTextSecondary,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -598,9 +604,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.white
-                                          : const Color(0xFF1A1A1A),
+                                      color: isDark
+                                          ? AppColors.darkText
+                                          : AppColors.lightText,
                                     ),
                                   ),
                                 ],
@@ -609,10 +615,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    'Remaining',
+                                    strings.remaining,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      color: isDark
+                                          ? AppColors.darkTextSecondary
+                                          : AppColors.lightTextSecondary,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -622,7 +630,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF10B981),
+                                      color: AppColors.success,
                                     ),
                                   ),
                                 ],
@@ -650,9 +658,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    temperatureMessage.contains(' - ')
-                                        ? temperatureMessage.split(' - ')[1]
-                                        : temperatureMessage,
+                                    temperatureMessage,
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -677,19 +683,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF6366F1).withOpacity(0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+                        color: isDark
+                            ? AppColors.white
+                            : AppColors.black,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: InkWell(
                         onTap: () => _showQuickCheckInDialog(),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -698,12 +699,16 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(10),
+                                    color: isDark
+                                        ? AppColors.grey200
+                                        : AppColors.grey900,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.bolt_rounded,
-                                    color: Colors.white,
+                                    color: isDark
+                                        ? AppColors.black
+                                        : AppColors.white,
                                     size: 20,
                                   ),
                                 ),
@@ -711,35 +716,43 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: isDark
+                                        ? AppColors.grey200
+                                        : AppColors.grey900,
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     '10 sec',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                      color: isDark
+                                          ? AppColors.black
+                                          : AppColors.white,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Quick Check-in',
+                            Text(
+                              strings.quickCheckIn,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: isDark
+                                    ? AppColors.black
+                                    : AppColors.white,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Track your daily spending',
+                              strings.trackSpending,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.white.withOpacity(0.8),
+                                color: isDark
+                                    ? AppColors.grey600
+                                    : AppColors.grey400,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -761,7 +774,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           child: _buildSecondaryActionCard(
                             icon: Icons.wb_sunny_outlined,
                             title: 'Briefing',
-                            color: const Color(0xFFF59E0B),
+                            color: AppColors.warning,
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -777,7 +790,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           child: _buildSecondaryActionCard(
                             icon: Icons.forum_outlined,
                             title: 'The Gist',
-                            color: const Color(0xFF8B5CF6),
+                            color: AppColors.secondary,
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -801,14 +814,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey.shade900
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isDark
+                      ? AppColors.darkSurface
+                      : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey.shade800
-                        : Colors.grey.shade200,
+                    color: isDark
+                        ? AppColors.darkElevated
+                        : AppColors.grey200,
                   ),
                 ),
                 child: Column(
@@ -817,9 +830,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'This Month',
-                          style: TextStyle(
+                        Text(
+                          strings.thisMonth,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -828,22 +841,22 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: spendingPercentage > 80
-                                ? Colors.red.shade50
+                                ? AppColors.error.withOpacity(0.1)
                                 : spendingPercentage > 60
-                                    ? Colors.orange.shade50
-                                    : Colors.green.shade50,
+                                    ? AppColors.warning.withOpacity(0.1)
+                                    : AppColors.success.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '$spendingPercentage% spent',
+                            strings.percentSpent(spendingPercentage),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: spendingPercentage > 80
-                                  ? Colors.red.shade700
+                                  ? AppColors.error
                                   : spendingPercentage > 60
-                                      ? Colors.orange.shade700
-                                      : Colors.green.shade700,
+                                      ? AppColors.warning
+                                      : AppColors.success,
                             ),
                           ),
                         ),
@@ -857,10 +870,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Budget',
+                                strings.budget,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.lightTextSecondary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -877,7 +892,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         Container(
                           height: 50,
                           width: 1,
-                          color: Colors.grey.shade300,
+                          color: isDark
+                              ? AppColors.darkElevated
+                              : AppColors.lightTextSecondary.withOpacity(0.3),
                         ),
                         Expanded(
                           child: Padding(
@@ -886,10 +903,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Spent',
+                                  strings.spent,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey.shade600,
+                                    color: isDark
+                                        ? AppColors.darkTextSecondary
+                                        : AppColors.lightTextSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -899,10 +918,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
                                     color: spendingPercentage > 80
-                                        ? Colors.red
+                                        ? AppColors.error
                                         : spendingPercentage > 60
-                                            ? Colors.orange
-                                            : Colors.green,
+                                            ? AppColors.warning
+                                            : AppColors.success,
                                   ),
                                 ),
                               ],
@@ -917,13 +936,15 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       child: LinearProgressIndicator(
                         value: totalSpent / monthlyBudget,
                         minHeight: 8,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor: isDark
+                            ? AppColors.darkElevated
+                            : AppColors.lightTextSecondary.withOpacity(0.2),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           spendingPercentage > 80
-                              ? Colors.red
+                              ? AppColors.error
                               : spendingPercentage > 60
-                                  ? Colors.orange
-                                  : Colors.green,
+                                  ? AppColors.warning
+                                  : AppColors.success,
                         ),
                       ),
                     ),
@@ -941,18 +962,18 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Recent Activity',
-                    style: TextStyle(
+                  Text(
+                    strings.recentActivity,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Navigate to all transactions
+                      Navigator.pushNamed(context, '/transactions');
                     },
-                    child: const Text('View All'),
+                    child: Text(strings.viewAll),
                   ),
                 ],
               ),
@@ -989,15 +1010,18 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   Color _getTemperatureColor(int percentage) {
-    if (percentage <= 30) return const Color(0xFF10B981);
-    if (percentage <= 60) return const Color(0xFFF59E0B);
-    if (percentage <= 85) return const Color(0xFFF97316);
-    if (percentage <= 100) return const Color(0xFFEF4444);
-    return const Color(0xFFDC2626);
+    if (percentage <= 30) return AppColors.success;
+    if (percentage <= 60) return AppColors.warning;
+    if (percentage <= 85) return AppColors.error;
+    if (percentage <= 100) return AppColors.hot;
+    return AppColors.hot;
   }
 
   void _showQuickCheckInDialog() {
     final dailyBudget = 1500.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langService = Provider.of<LanguageService>(context, listen: false);
+    final strings = AppStrings(langService.currentLanguage);
 
     showModalBottomSheet(
       context: context,
@@ -1006,9 +1030,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.shade900
-              : Colors.white,
+          color: isDark
+              ? AppColors.darkSurface
+              : AppColors.lightSurface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24),
             topRight: Radius.circular(24),
@@ -1021,33 +1045,37 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: isDark
+                    ? AppColors.darkElevated
+                    : AppColors.lightTextSecondary.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'How you spend today?',
-              style: TextStyle(
+            Text(
+              strings.howDidYouSpend,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Compare your spending to today\'s budget',
+              strings.compareSpending,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.lightTextSecondary,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             _buildCheckInOption(
               icon: Icons.trending_down,
-              title: 'Below Budget',
-              subtitle: 'I spend less than $_currencySymbol${_formatNumber(dailyBudget)}',
-              color: Colors.green,
+              title: strings.belowBudget,
+              subtitle: strings.spentLessThan('$_currencySymbol${_formatNumber(dailyBudget)}'),
+              color: AppColors.success,
               onTap: () {
                 Navigator.pop(context);
                 _showAmountInputDialog('below', dailyBudget);
@@ -1056,9 +1084,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             const SizedBox(height: 12),
             _buildCheckInOption(
               icon: Icons.check_circle,
-              title: 'Exact Budget',
-              subtitle: 'I spend around $_currencySymbol${_formatNumber(dailyBudget)}',
-              color: Colors.blue,
+              title: strings.exactBudget,
+              subtitle: strings.spentAround('$_currencySymbol${_formatNumber(dailyBudget)}'),
+              color: AppColors.primary,
               onTap: () {
                 Navigator.pop(context);
                 _showCelebrationDialog('exact');
@@ -1067,9 +1095,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             const SizedBox(height: 12),
             _buildCheckInOption(
               icon: Icons.trending_up,
-              title: 'Above Budget',
-              subtitle: 'I spend more than $_currencySymbol${_formatNumber(dailyBudget)}',
-              color: Colors.red,
+              title: strings.aboveBudget,
+              subtitle: strings.spentMoreThan('$_currencySymbol${_formatNumber(dailyBudget)}'),
+              color: AppColors.error,
               onTap: () {
                 Navigator.pop(context);
                 _showAmountInputDialog('above', dailyBudget);
@@ -1085,6 +1113,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   void _showAmountInputDialog(String type, double dailyBudget) {
     final amountController = TextEditingController();
     String? selectedCategory;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langService = Provider.of<LanguageService>(context, listen: false);
+    final strings = AppStrings(langService.currentLanguage);
 
     showModalBottomSheet(
       context: context,
@@ -1099,9 +1130,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey.shade900
-                : Colors.white,
+            color: isDark
+                ? AppColors.darkSurface
+                : AppColors.lightSurface,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24),
               topRight: Radius.circular(24),
@@ -1114,13 +1145,15 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark
+                      ? AppColors.darkElevated
+                      : AppColors.lightTextSecondary.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
-                type == 'below' ? 'How much you spend?' : 'Wetin happen?',
+                type == 'below' ? strings.howMuchSpent : strings.whatHappened,
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -1128,12 +1161,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               ),
               const SizedBox(height: 8),
               Text(
-                type == 'below'
-                    ? 'Give us an estimate'
-                    : 'Tell us how much and where the money go',
+                type == 'below' ? strings.giveEstimate : strings.tellUsMore,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1147,19 +1180,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   prefixStyle: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   hintText: '0',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkElevated
+                          : AppColors.lightTextSecondary.withOpacity(0.3),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),
               if (type == 'above') ...[
                 const SizedBox(height: 24),
-                const Text(
-                  'Which category? (Optional)',
-                  style: TextStyle(
+                Text(
+                  strings.whichCategory,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1169,22 +1207,22 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildCategoryChip('🍔 CHOP', selectedCategory, (value) {
+                    _buildCategoryChip('🍔 ${strings.catFood}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
-                    _buildCategoryChip('🚗 MOVE', selectedCategory, (value) {
+                    _buildCategoryChip('🚗 ${strings.catTransport}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
-                    _buildCategoryChip('💰 FLEX', selectedCategory, (value) {
+                    _buildCategoryChip('💰 ${strings.catFlex}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
-                    _buildCategoryChip('❤️ RELATIONSHIP', selectedCategory, (value) {
+                    _buildCategoryChip('❤️ ${strings.catRelationship}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
-                    _buildCategoryChip('🏠 MUST PAY', selectedCategory, (value) {
+                    _buildCategoryChip('🏠 ${strings.catBills}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
-                    _buildCategoryChip('📱 OTHER', selectedCategory, (value) {
+                    _buildCategoryChip('📱 ${strings.catOther}', selectedCategory, (value) {
                       setModalState(() => selectedCategory = value);
                     }),
                   ],
@@ -1201,16 +1239,16 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    'Submit',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: Text(
+                    strings.submit,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -1223,12 +1261,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   Widget _buildCategoryChip(String category, String? selectedCategory, Function(String?) onTap) {
     final isSelected = selectedCategory == category;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => onTap(isSelected ? null : category),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple : Colors.grey.shade200,
+          color: isSelected
+              ? AppColors.primary
+              : isDark
+                  ? AppColors.darkElevated
+                  : AppColors.lightTextSecondary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -1236,7 +1279,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : Colors.black87,
+            color: isSelected
+                ? Colors.white
+                : isDark
+                    ? AppColors.darkText
+                    : AppColors.lightText,
           ),
         ),
       ),
@@ -1244,6 +1291,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   void _showCelebrationDialog(String type) {
+    final langService = Provider.of<LanguageService>(context, listen: false);
+    final strings = AppStrings(langService.currentLanguage);
+
     String emoji;
     String title;
     String message;
@@ -1251,19 +1301,19 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
     if (type == 'below') {
       emoji = '🎉';
-      title = 'Well done!';
-      message = 'You save money today! Keep am up!';
-      color = Colors.green;
+      title = strings.wellDone;
+      message = strings.savedMoney;
+      color = AppColors.success;
     } else if (type == 'exact') {
       emoji = '👍';
-      title = 'Perfect!';
-      message = 'You dey manage am well! Stay disciplined!';
-      color = Colors.blue;
+      title = strings.perfect;
+      message = strings.stayDisciplined;
+      color = AppColors.primary;
     } else {
       emoji = '⚠️';
-      title = 'E don happen!';
-      message = 'Make you try reduce spending tomorrow. We go readjust your budget for the rest of the month.';
-      color = Colors.orange;
+      title = strings.itHappened;
+      message = strings.tryReduce;
+      color = AppColors.warning;
     }
 
     showDialog(
@@ -1290,7 +1340,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 message,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey.shade700,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1307,9 +1359,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: Text(
+                    strings.done,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -1326,29 +1378,22 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     required Color color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1A1A1A)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isDark
+              ? AppColors.darkSurface
+              : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF2A2A2A)
-                : Colors.grey.shade200,
-            width: 1,
+            color: isDark
+                ? AppColors.darkElevated
+                : AppColors.grey200,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1356,10 +1401,18 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: isDark
+                    ? AppColors.darkElevated
+                    : AppColors.grey100,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(
+                icon,
+                color: isDark
+                    ? AppColors.darkText
+                    : AppColors.lightText,
+                size: 20,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1367,9 +1420,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : const Color(0xFF1A1A1A),
+                color: isDark
+                    ? AppColors.darkText
+                    : AppColors.lightText,
               ),
             ),
           ],
@@ -1441,19 +1494,20 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   Widget _buildTransactionCard(String title, double amount, String category, IconData icon) {
     final isIncome = amount > 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.grey.shade900
-            : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.shade800
-              : Colors.grey.shade200,
+          color: isDark
+              ? AppColors.darkElevated
+              : AppColors.grey200,
         ),
       ),
       child: Row(
@@ -1461,12 +1515,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+              color: isIncome
+                  ? AppColors.success.withOpacity(0.1)
+                  : AppColors.error.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
-              color: isIncome ? Colors.green : Colors.red,
+              color: isIncome ? AppColors.success : AppColors.error,
               size: 24,
             ),
           ),
@@ -1487,7 +1543,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   category,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
                   ),
                 ),
               ],
@@ -1498,7 +1556,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: isIncome ? Colors.green : Colors.red,
+              color: isIncome ? AppColors.success : AppColors.error,
             ),
           ),
         ],
