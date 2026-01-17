@@ -474,34 +474,37 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              strings.greeting(userName),
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? AppColors.darkText
-                                    : AppColors.lightText,
-                                letterSpacing: -1,
-                                height: 1.1,
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                strings.greeting(userName),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark
+                                      ? AppColors.darkText
+                                      : AppColors.lightText,
+                                  letterSpacing: -1,
+                                  height: 1.1,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              strings.spendingOverview,
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: isDark
-                                    ? AppColors.darkTextSecondary
-                                    : AppColors.lightTextSecondary,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.2,
+                              const SizedBox(height: 6),
+                              Text(
+                                strings.spendingOverview,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.lightTextSecondary,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         Row(
                           children: [
